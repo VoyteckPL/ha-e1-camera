@@ -9,3 +9,6 @@
 
 ## 0.3.1
 - Preset Noc jak w panelu (jaśniej).
+
+## 0.4.0
+- Bezposredni dostep do kamery (Isp) z danymi logowania z integracji Reolink: GET/POST /isp.

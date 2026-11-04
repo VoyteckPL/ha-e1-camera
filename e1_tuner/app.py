@@ -229,6 +229,55 @@ async def petla_etykiet():
         await asyncio.sleep(10)
 
 
+# ---- bezposredni dostep do kamery (Isp: ekspozycja, wzmocnienie, migawka...) - dane logowania z integracji Reolink w HA ----
+_cam = {"base": None, "user": None, "pw": None, "token": None, "exp": 0}
+
+
+def _wczytaj_kamere():
+    try:
+        d = json.load(open("/ha_config/.storage/core.config_entries"))
+        for e in d["data"]["entries"]:
+            if e.get("domain") == "reolink":
+                x = e["data"]
+                sch = "https" if x.get("use_https") else "http"
+                _cam.update(base=f"{sch}://{x['host']}:{x.get('port') or (443 if sch == 'https' else 80)}", user=x["username"], pw=x["password"])
+                return True
+    except Exception as ex:
+        log.warning("brak danych kamery: %s", ex)
+    return False
+
+
+async def cam_cmd(cmd, param=None, action=0, ch=0):
+    if not _cam["base"] and not _wczytaj_kamere():
+        raise RuntimeError("brak danych kamery")
+    if time.time() > _cam["exp"] - 30:
+        body = [{"cmd": "Login", "param": {"User": {"Version": "0", "userName": _cam["user"], "password": _cam["pw"]}}}]
+        async with _sess.post(_cam["base"] + "/api.cgi?cmd=Login", json=body, ssl=False, timeout=aiohttp.ClientTimeout(total=15)) as r:
+            j = await r.json(content_type=None)
+        t = j[0]["value"]["Token"]
+        _cam.update(token=t["name"], exp=time.time() + int(t.get("leaseTime", 3600)))
+    body = [{"cmd": cmd, "action": action, "param": param or {"channel": ch}}]
+    async with _sess.post(f"{_cam['base']}/api.cgi?cmd={cmd}&token={_cam['token']}", json=body, ssl=False, timeout=aiohttp.ClientTimeout(total=15)) as r:
+        j = await r.json(content_type=None)
+    return j[0]
+
+
+async def isp_get():
+    j = await cam_cmd("GetIsp", action=1)
+    return j["value"]["Isp"] if "value" in j else j
+
+
+async def isp_set(zmiany):
+    """Pobiera pelny Isp, nakłada zmiany (slownik, zagnieżdżone np. {"gain": {"max": 80}}), wysyla z powrotem."""
+    isp = await isp_get()
+    for k, v in zmiany.items():
+        if isinstance(v, dict) and isinstance(isp.get(k), dict):
+            isp[k].update(v)
+        else:
+            isp[k] = v
+    return await cam_cmd("SetIsp", param={"Isp": isp})
+
+
 SENSOR = "sensor.kamera_strojenie"
 AUTO = "input_boolean.kamera_auto_presety"
 N = "number.e1_outdoor_"
@@ -336,6 +385,22 @@ async def status(request):
                               "ostatnie_zdarzenia": _wczytaj(F_ZDARZ, 5), "ostatnie_etykiety": _wczytaj(F_ETYK, 5)})
 
 
+async def isp_api(request):
+    """GET /isp - odczyt; POST /isp {"zmiany": {...}} - zapis (z zapamietaniem poprzednich wartosci w /data/isp_prev.json)."""
+    try:
+        if request.method == "POST":
+            d = await request.json()
+            zm = d.get("zmiany") or {}
+            prev = await isp_get()
+            json.dump(prev, open(DATA / "isp_prev.json", "w"))
+            res = await isp_set(zm)
+            return web.json_response({"ok": True, "wynik": res, "isp": await isp_get()})
+        return web.json_response({"ok": True, "isp": await isp_get()})
+    except Exception as e:
+        log.exception("isp")
+        return web.json_response({"ok": False, "blad": str(e)})
+
+
 async def eksport(request):
     n = min(5000, int(request.query.get("n", 500)))
     plik = {"probki": F_PROBKI, "zdarzenia": F_ZDARZ, "etykiety": F_ETYK}.get(request.query.get("co", "probki"), F_PROBKI)
@@ -351,7 +416,7 @@ async def on_start(app):
 
 def main():
     app = web.Application()
-    app.add_routes([web.get("/status", status), web.get("/dane", eksport)])
+    app.add_routes([web.get("/status", status), web.get("/dane", eksport), web.get("/isp", isp_api), web.post("/isp", isp_api)])
     app.on_startup.append(on_start)
     web.run_app(app, host="0.0.0.0", port=8100)
 

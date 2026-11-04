@@ -1,5 +1,5 @@
 name: E1 Kamera - strojenie
-version: "0.3.1"
+version: "0.4.0"
 slug: e1_tuner
 description: Uczy sie czulosci i obrazu kamery Reolink E1 (pora dnia, pogoda, jasnosc, falszywe alarmy). Wersja 0.1 tylko zbiera dane.
 url: https://github.com/VoyteckPL/ha-e1-camera
@@ -10,6 +10,10 @@ startup: services
 boot: auto
 init: false
 homeassistant_api: true
+map:
+  - type: homeassistant_config
+    read_only: true
+    path: /ha_config
 options:
   probkowanie_min: 10
   tryb: zbieranie
