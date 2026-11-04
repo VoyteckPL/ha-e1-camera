@@ -142,6 +142,16 @@ def etykieta_wektor(vec, auto_id):
     return next((a for a in d["auta"] if a["id"] == auto_id), {"id": OBCE, "nazwa": "Obce auto", "opis": ""})
 
 
+def reset(auto_id, opis=None):
+    """Kasuje probki auta (wraca do priorytetu barwy); opcjonalnie ustawia opis."""
+    d = _dane()
+    d["probki"].pop(auto_id, None)
+    for a in d["auta"]:
+        if a["id"] == auto_id and opis is not None:
+            a["opis"] = opis
+    _zapisz(d)
+
+
 def lista():
     d = _dane()
     return [dict(a, probek=len(d["probki"].get(a["id"], []))) for a in d["auta"]]

@@ -904,6 +904,9 @@ async def analyze(request):
             dane = json.loads(str(d.get("plik", "{}")) or "{}")
             if dane.get("cmd") == "auta":
                 return web.json_response({"ok": True, "auta": auta.lista()})
+            if dane.get("cmd") == "reset":
+                auta.reset(str(dane.get("auto", "")), dane.get("opis"))
+                return web.json_response({"ok": True, "auta": auta.lista()})
             if dane.get("cmd") == "etykieta":
                 bb, cr, av = str(dane.get("b", "")), str(dane.get("crop", "")), str(dane.get("auto", ""))
                 if "/" in cr or not cr:

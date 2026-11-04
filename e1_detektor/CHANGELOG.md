@@ -136,3 +136,6 @@
 
 ## 0.9.9
 - Przy bardzo wysokim dopasowaniu (>=0.85) wystarczy mały margines nad drugim autem.
+
+## 0.10.0
+- API: reset próbek wybranego auta.
