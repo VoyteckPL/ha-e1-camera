@@ -149,3 +149,6 @@
 
 ## 0.11.2
 - Bez obrysów na zdjęciach, same etykiety aut.
+
+## 0.12.0
+- Panel: przycisk "Fałszywy" przy zdarzeniu (wysyła event kamera_etykieta do add-onu strojenia).
