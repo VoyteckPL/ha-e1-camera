@@ -94,7 +94,7 @@ body[data-tab=zd] #nav [data-tab=zd],body[data-tab=live] #nav [data-tab=live],bo
 .btn{min-height:34px}.row{flex-wrap:wrap}.tc .row,.card .row{justify-content:flex-start}.tc .row .btn,.card .row .btn{flex:1 1 0;padding:7px 4px;white-space:nowrap;text-align:center}
 .chip{padding:7px 13px;font-size:14px}
 /* na zywo */
-.lvw{position:relative;background:#000;border-radius:12px;overflow:hidden;aspect-ratio:16/9}.lvw img{width:100%;height:100%;object-fit:contain;display:block}
+.lvw{touch-action:none;position:relative;background:#000;border-radius:12px;overflow:hidden;aspect-ratio:16/9}.lvw img{width:100%;height:100%;object-fit:contain;display:block;transform-origin:0 0;will-change:transform;user-select:none;-webkit-user-drag:none}
 .lvw .lvb{position:absolute;right:8px;bottom:8px;background:#000a;color:#fff;border:0;border-radius:10px;padding:6px 10px;font:inherit;font-size:13px;cursor:pointer}
 .lvw .lvi{position:absolute;left:8px;top:8px;background:#000a;color:#fff;border-radius:8px;padding:2px 8px;font-size:12px}
 .pre{display:flex;gap:8px;overflow-x:auto;padding:10px 0 4px;scrollbar-width:none}.pre::-webkit-scrollbar{display:none}
@@ -373,7 +373,7 @@ function lvBuild(){const el=$('tl');if(el.dataset.b)return;el.dataset.b=1;
 const pr=PRES.map(p=>`<button data-pre="${p[0]}"><i>${p[1]}</i><span>${p[2]}</span><small>${p[3]}</small></button>`).join('')+`<button data-pre="wlasny" id="prw"><i>⭐</i><span>Własny</span><small>zapisany</small></button>`;
 let g='';for(const [t,ls] of SLG){g+=`<div class="set"><h3>${t}</h3>`+ls.map(l=>`<div class="sl"><div class="sh"><span>${l[0]}</span><b data-lv="${l[1]}">–</b></div><input type="range" data-sl="${l[1]}" min="0" max="100" step="1"></div>`).join('')+`</div>`}
 g+=`<div class="set"><h3>Noc i światło</h3>`+SEL.map(l=>`<div class="f"><label>${l[0]}</label><select data-se="${l[1]}"></select></div>`).join('')+`</div>`;
-el.innerHTML=`<div class="lvw"><img id="lvi" alt=""><span class="lvi" id="lvt">na żywo</span><button class="lvb" id="lvfs">⛶ Pełny ekran</button></div>
+el.innerHTML=`<div class="lvw"><img id="lvi" alt=""><span class="lvi" id="lvt">na żywo</span><span class="lvi" id="lvz" style="left:auto;right:8px;top:8px"></span><button class="lvb" id="lvfs">⛶ Pełny ekran</button></div>
 <div class="pre" id="pre">${pr}</div>
 <button class="btn big" id="lvauto" style="margin-top:6px">🤖 Auto-presety</button><p class="opis" id="lvainf" style="margin:4px 0 0"></p>
 <div class="lvu"><button class="btn" id="lvundo">↩ Cofnij zmiany</button><button class="btn" id="lvsave">⭐ Zapisz jako Własny</button></div>
@@ -443,5 +443,22 @@ if(t.type=='checkbox')setU(d.z,d.k,{n:t.checked?1:0});else if(t.type=='time'&&t.
 document.addEventListener('keydown',e=>{if(e.key=='Escape')closeEv()});
 
 function ping(){if(document.visibilityState!='visible')return;const h=H();if(h)h.callService('input_text','set_value',{entity_id:'input_text.kamera_panel_ping',value:String(Math.floor(Date.now()/1000))})}
+
+/* zoom: szczypanie dwoma palcami, przeciaganie, dwuklik = reset, kolko myszy */
+(function(){let z=1,x=0,y=0;const P=new Map();let d0=0,z0=1,c0=null;
+function box(){const w=document.querySelector('.lvw');return w&&w.getBoundingClientRect()}
+function ap(){const i=$('lvi');if(!i)return;const b=box();if(!b)return;z=Math.max(1,Math.min(8,z));x=Math.min(0,Math.max(b.width*(1-z),x));y=Math.min(0,Math.max(b.height*(1-z),y));if(z==1){x=y=0}i.style.transform=`translate(${x}px,${y}px) scale(${z})`;const t=$('lvz');if(t)t.textContent=z>1.02?z.toFixed(1)+'×':''}
+function zoomAt(nz,cx,cy){const k=nz/z;x=cx-(cx-x)*k;y=cy-(cy-y)*k;z=nz;ap()}
+document.addEventListener('pointerdown',e=>{const w=e.target.closest&&e.target.closest('.lvw');if(!w||e.target.closest('button'))return;P.set(e.pointerId,{x:e.clientX,y:e.clientY});try{w.setPointerCapture(e.pointerId)}catch(_){}
+if(P.size==2){const [a,b]=[...P.values()];d0=Math.hypot(a.x-b.x,a.y-b.y);z0=z}});
+document.addEventListener('pointermove',e=>{if(!P.has(e.pointerId))return;const p=P.get(e.pointerId),b=box();if(!b)return;
+if(P.size==1&&z>1){x+=e.clientX-p.x;y+=e.clientY-p.y;p.x=e.clientX;p.y=e.clientY;ap()}
+else if(P.size==2){p.x=e.clientX;p.y=e.clientY;const [a,c]=[...P.values()];const d=Math.hypot(a.x-c.x,a.y-c.y);if(d0>0)zoomAt(Math.max(1,Math.min(8,z0*d/d0)),(a.x+c.x)/2-b.left,(a.y+c.y)/2-b.top)}
+else{p.x=e.clientX;p.y=e.clientY}});
+const up=e=>{P.delete(e.pointerId);if(P.size==1){const q=[...P.values()][0];}};
+document.addEventListener('pointerup',up);document.addEventListener('pointercancel',up);
+document.addEventListener('dblclick',e=>{const w=e.target.closest&&e.target.closest('.lvw');if(!w||e.target.closest('button'))return;const b=box();if(z>1){z=1;ap()}else zoomAt(3,e.clientX-b.left,e.clientY-b.top)});
+document.addEventListener('wheel',e=>{const w=e.target.closest&&e.target.closest('.lvw');if(!w)return;e.preventDefault();const b=box();zoomAt(Math.max(1,Math.min(8,z*(e.deltaY<0?1.2:1/1.2))),e.clientX-b.left,e.clientY-b.top)},{passive:false});
+})();
 setTab(TAB);render();loadCfg();loadAuta();chkUrl();setInterval(()=>{render();pkRender();chkUrl();if($('tu').classList.contains('on'))tuRender();lvSync();tusSync()},1500);setInterval(lvSnap,1200);setInterval(()=>{if(!AUTA.length)loadAuta()},8000);ping();setInterval(ping,10000);document.addEventListener('visibilitychange',ping);
 </script></body></html>

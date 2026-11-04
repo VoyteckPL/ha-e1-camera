@@ -171,3 +171,6 @@
 
 ## 0.14.0
 - Panel: opis auto-strojenia (płynne dopasowanie).
+
+## 0.14.1
+- Podglad na zywo: zoom szczypaniem, przeciaganie, dwuklik = reset.
