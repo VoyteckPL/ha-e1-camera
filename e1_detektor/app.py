@@ -725,8 +725,8 @@ def rysuj(img, items):
             if x1 < lx + lw2 and x1 + tw > lx and ty < ly + lh and ty + th > ly:
                 ty = ly + lh  # nie nakladaj etykiet
         zajete.append((x1, ty, tw, th))
-        dr.rectangle([x1, ty, x1 + tw, ty + th], fill=rgb + (120,))
-        dr.text((x1 + 4, ty + 2), txt, fill=(255, 255, 255, 235), font=font)
+        dr.rectangle([x1, ty, x1 + tw, ty + th], fill=rgb + (200,))
+        dr.text((x1 + 4, ty + 2), txt, fill=(0, 0, 0, 255), font=font)
     return Image.alpha_composite(base, ov).convert("RGB")
 
 

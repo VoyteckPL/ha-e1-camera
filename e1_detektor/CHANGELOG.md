@@ -121,3 +121,6 @@
 
 ## 0.9.4
 - Opisy na zdjeciu: KIA / MAZDA / SEAT w srodku auta, male, polprzezroczyste.
+
+## 0.9.5
+- Opisy aut wyraznie widoczne (mniej przezroczyste, ciemny tekst).
