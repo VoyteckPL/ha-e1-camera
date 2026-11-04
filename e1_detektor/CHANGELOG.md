@@ -61,3 +61,6 @@
 
 ## 0.6.1
 - Sledzenie i poprawa kadru: gdy brak zywego klipu, czeka na wideo z Reolinka.
+
+## 0.6.2
+- Licznik zaparkowanych aut jako sensor.kamera_zaparkowane (b=zaparkowane, plik=reset|sensor).

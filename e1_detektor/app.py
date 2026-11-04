@@ -484,6 +484,29 @@ def _park_zapisz(lista):
         os.replace(tmp, PARK_PLIK)
     except Exception:
         log.exception("zapis zaparkowanych")
+    _park_sensor(lista)
+
+
+def _park_sensor(lista):
+    """Wystawia licznik jako sensor.kamera_zaparkowane (REST przez proxy Supervisora)."""
+    import urllib.request
+    try:
+        body = json.dumps({
+            "state": len(lista),
+            "attributes": {
+                "friendly_name": "Kamera zaparkowane auta",
+                "unit_of_measurement": "aut",
+                "icon": "mdi:car-multiple",
+                "od": [datetime.fromtimestamp(p["t"]).strftime("%Y-%m-%d %H:%M") for p in lista],
+            },
+        }).encode()
+        rq = urllib.request.Request(
+            reolink.URL + "/api/states/sensor.kamera_zaparkowane", data=body, method="POST",
+            headers={"Authorization": "Bearer " + reolink.TOKEN, "Content-Type": "application/json"},
+        )
+        urllib.request.urlopen(rq, timeout=10).read()
+    except Exception as e:
+        log.warning("sensor zaparkowane: %s", e)
 
 
 def _podjazd_id(cfg):
@@ -603,6 +626,10 @@ async def sledz_pojazd(b, lok, hm, granica=""):
 async def analyze(request):
     d = await request.json()
     if str(d.get("b", "")) == "zaparkowane":
+        if str(d.get("plik", "")) == "reset":
+            _park_zapisz([])
+        elif str(d.get("plik", "")) == "sensor":
+            _park_sensor(_park_lista())
         return web.json_response({"ok": True, "zaparkowane": _park_lista()})
     if str(d.get("b", "")) == "sledz":
         lista = [x.strip() for x in str(d.get("plik", "")).split(",") if x.strip() and "/" not in x]
