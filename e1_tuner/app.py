@@ -230,6 +230,62 @@ async def petla_etykiet():
 
 
 SENSOR = "sensor.kamera_strojenie"
+AUTO = "input_boolean.kamera_auto_presety"
+N = "number.e1_outdoor_"
+E_OS, E_PO, E_ZW, E_RU = (N + "czulosc_wykrywania_osob_przez_ai", N + "czulosc_wykrywania_pojazdow_przez_ai",
+                          N + "czulosc_wykrywania_zwierzat_przez_ai", N + "czulosc_na_ruch")
+E_JA, E_KO, E_NA, E_OT = N + "jasnosc_obrazu", N + "kontrast_obrazu", N + "nasycenie_obrazu", N + "ostrosc_obrazu"
+# te same wartosci co presety w panelu (kamera_panel.html)
+P_DZIEN = {E_OS: 50, E_PO: 50, E_ZW: 50, E_RU: 35, E_JA: 128, E_KO: 128, E_NA: 128, E_OT: 128}
+P_NOC = {E_OS: 70, E_PO: 75, E_ZW: 65, E_RU: 40, E_JA: 128, E_KO: 140, E_NA: 100, E_OT: 120}
+P_DESZCZ = {E_OS: 65, E_PO: 65, E_ZW: 55, E_RU: 25}
+LUX_NOC, LUX_DZIEN = 15, 30  # histereza: noc <15 lx, dzien >30 lx
+DESZCZ_PO_S = 20 * 60  # po deszczu jeszcze 20 min (krople na obiektywie)
+_auto = {"baza": None, "deszcz": None, "od": None, "opis": "", "ostatnia": 0}
+
+
+async def ustaw(eid, val):
+    try:
+        async with _sess.post(f"{API}/services/number/set_value", headers=H(), json={"entity_id": eid, "value": val},
+                              timeout=aiohttp.ClientTimeout(total=15)) as r:
+            return r.status < 300
+    except Exception:
+        return False
+
+
+async def petla_auto():
+    """Gdy wlaczony input_boolean.kamera_auto_presety: noc/dzien wg jasnosci zewnetrznej + deszcz. Zmiany tylko przy przejsciu stanu."""
+    await asyncio.sleep(40)
+    while True:
+        try:
+            on = (await stan(AUTO) or {}).get("state") == "on"
+            _auto["wlaczone"] = on
+            if on:
+                c = _last_ctx or await kontekst()
+                lux = c.get("lux")
+                if lux is not None:
+                    baza = _auto["baza"]
+                    if baza != "noc" and lux < LUX_NOC:
+                        baza = "noc"
+                    elif baza != "dzien" and lux > LUX_DZIEN:
+                        baza = "dzien"
+                    elif baza is None:
+                        baza = "noc" if lux < (LUX_NOC + LUX_DZIEN) / 2 else "dzien"
+                    pada = bool(c.get("deszcz")) or (c.get("deszcz_zmiana_s") is not None and c.get("deszcz") == 0 and c["deszcz_zmiana_s"] < DESZCZ_PO_S)
+                    if (baza, pada) != (_auto["baza"], _auto["deszcz"]):
+                        vals = dict(P_NOC if baza == "noc" else P_DZIEN)
+                        if pada:
+                            vals.update(P_DESZCZ)
+                        ok = [await ustaw(e, v) for e, v in vals.items()]
+                        _auto.update(baza=baza, deszcz=pada, od=int(time.time()), opis=("Noc" if baza == "noc" else "Dzień") + (" + deszcz" if pada else ""))
+                        zapisz(DATA / "zmiany.jsonl", {"t": int(time.time()), "preset": _auto["opis"], "lux": lux, "ok": all(ok)})
+                        log.info("auto-preset: %s (lux=%s, ok=%s)", _auto["opis"], lux, all(ok))
+                        await pchnij()
+            else:
+                _auto.update(baza=None, deszcz=None)  # po wylaczeniu i ponownym wlaczeniu ustaw preset od nowa
+        except Exception:
+            log.exception("auto")
+        await asyncio.sleep(60)
 
 
 def podsumowanie():
@@ -253,7 +309,8 @@ def podsumowanie():
         o = p.get("obraz") or {}
         seria.append({"t": p["t"], "jasn": o.get("jasn"), "lux": p.get("lux"), "szum": o.get("szum"), "ostr": o.get("ostrosc"),
                       "prz": o.get("przepal"), "czern": o.get("czern"), "dz": p.get("deszcz")})
-    return {"tryb": OPTS.get("tryb", "zbieranie"), "ctx": _last_ctx, "stat": _stat, "zd7": zd, "etykiet": len(etyk), "seria": seria}
+    return {"tryb": OPTS.get("tryb", "zbieranie"), "ctx": _last_ctx, "stat": _stat, "zd7": zd, "etykiet": len(etyk), "seria": seria,
+            "auto": {"wlaczone": _auto.get("wlaczone", False), "opis": _auto["opis"], "od": _auto["od"]}}
 
 
 async def pchnij():
@@ -289,7 +346,7 @@ async def on_start(app):
     global _sess
     DATA.mkdir(parents=True, exist_ok=True)
     _sess = aiohttp.ClientSession()
-    app["t"] = [asyncio.create_task(f()) for f in (petla_probek, petla_zdarzen, petla_etykiet)]
+    app["t"] = [asyncio.create_task(f()) for f in (petla_probek, petla_zdarzen, petla_etykiet, petla_auto)]
 
 
 def main():

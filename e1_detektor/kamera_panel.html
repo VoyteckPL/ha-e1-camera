@@ -375,6 +375,7 @@ let g='';for(const [t,ls] of SLG){g+=`<div class="set"><h3>${t}</h3>`+ls.map(l=>
 g+=`<div class="set"><h3>Noc i światło</h3>`+SEL.map(l=>`<div class="f"><label>${l[0]}</label><select data-se="${l[1]}"></select></div>`).join('')+`</div>`;
 el.innerHTML=`<div class="lvw"><img id="lvi" alt=""><span class="lvi" id="lvt">na żywo</span><button class="lvb" id="lvfs">⛶ Pełny ekran</button></div>
 <div class="pre" id="pre">${pr}</div>
+<button class="btn big" id="lvauto" style="margin-top:6px">🤖 Auto-presety</button><p class="opis" id="lvainf" style="margin:4px 0 0"></p>
 <div class="lvu"><button class="btn" id="lvundo">↩ Cofnij zmiany</button><button class="btn" id="lvsave">⭐ Zapisz jako Własny</button></div>
 <p class="opis" id="lvmsg" style="margin:4px 0 0"></p>${g}
 <p class="opis">Presety to punkty startowe – dopasuj suwaki, a „Zapisz jako Własny” zapamięta Twój układ (na tym urządzeniu). Uczenie automatyczne (Strojenie) będzie je z czasem proponować.</p>`}
@@ -382,6 +383,9 @@ function lvSnap(){if(TAB!='live')return;const h=H(),s=h&&h.states[LVC];if(!s||!s
 function lvSync(){if(TAB!='live'||!$('tl').dataset.b)return;const h=H();if(!h)return;
 document.querySelectorAll('[data-sl]').forEach(r=>{const e=r.dataset.sl,s=h.states[e];if(!s)return;const a=s.attributes;r.min=a.min!=null?a.min:0;r.max=a.max!=null?a.max:100;r.step=a.step||1;if(!lvDrag||document.activeElement!==r){r.value=s.state;document.querySelector(`[data-lv="${e}"]`).textContent=Math.round(+s.state)}});
 document.querySelectorAll('[data-se]').forEach(sel=>{const s=h.states[sel.dataset.se];if(!s)return;const o=s.attributes.options||[];if(sel.dataset.o!=o.join('|')){sel.innerHTML=o.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');sel.dataset.o=o.join('|')}if(document.activeElement!==sel)sel.value=s.state});
+const ab=h.states['input_boolean.kamera_auto_presety'],on=ab&&ab.state=='on',ts=h.states['sensor.kamera_strojenie'],au=(ts&&ts.attributes.auto)||{};
+const bt=$('lvauto');if(bt){bt.textContent=ab?(on?'🤖 Auto-presety: WŁĄCZONE':'🤖 Auto-presety: wyłączone'):'🤖 Auto-presety niedostępne';bt.classList.toggle('pri',!!on)}
+const inf=$('lvainf');if(inf)inf.textContent=on?(au.opis?'Aktywny: '+au.opis+(au.od?' (od '+new Date(au.od*1000).toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})+')':''):'Czekam na pierwszą decyzję (do ok. minuty)…')+'. Noc przy jasności < 15 lx, dzień > 30 lx, deszcz z czujnika (i 20 min po).':'Włącz, a Noc/Dzień/Deszcz będą przełączane same wg jasności zewnętrznej i czujnika deszczu. Ręczne zmiany suwakami działają do następnego przełączenia.';
 const w=wlasny();
 document.querySelectorAll('#pre button').forEach(b=>{const id=b.dataset.pre;let v=id=='wlasny'?w:(PRES.find(p=>p[0]==id)||[])[4];b.style.display=id=='wlasny'&&!w?'none':'';b.classList.toggle('on',!!v&&Object.keys(v).every(e=>lvNum(e)===+v[e]))})}
 async function lvSet(e,v){const h=H();if(!h)return;try{await h.callWS({type:'call_service',domain:'number',service:'set_value',service_data:{entity_id:e,value:+v}})}catch(x){}}
@@ -412,6 +416,7 @@ else if(t.id=='bvd'){showVideo()}
 else if(t.id=='stb'){openSt()}
 else if(d.tab){setTab(d.tab)}
 else if(d.pre){const v=d.pre=='wlasny'?wlasny():(PRES.find(p=>p[0]==d.pre)||[])[4];if(v)lvApply(v,'Preset '+(d.pre=='wlasny'?'Własny':PRES.find(p=>p[0]==d.pre)[2]))}
+else if(t.id=='lvauto'){const h=H();if(h)h.callService('input_boolean','toggle',{entity_id:'input_boolean.kamera_auto_presety'});setTimeout(lvSync,600)}
 else if(t.id=='lvundo'){let p=null;try{p=JSON.parse(localStorage.getItem('kam_prev')||'null')}catch(e){}if(p)lvApply(p,'Cofnięto');else $('lvmsg').textContent='Nie ma czego cofać.'}
 else if(t.id=='lvsave'){try{localStorage.setItem('kam_wlasny',JSON.stringify(lvSnapshot()));$('lvmsg').textContent='Zapisano jako Własny ✓'}catch(e){$('lvmsg').textContent='Nie można zapisać'}lvSync()}
 else if(t.id=='lvfs'){try{parent.document.querySelector('home-assistant').dispatchEvent(new CustomEvent('hass-more-info',{bubbles:true,composed:true,detail:{entityId:LVC}}))}catch(e){}}

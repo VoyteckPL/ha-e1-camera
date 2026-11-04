@@ -162,3 +162,6 @@
 ## 0.13.0
 - Panel przebudowany pod telefon: dolna nawigacja (Zdarzenia / Na żywo / Ustawienia), domyślnie oś czasu, zwarte przyciski.
 - Zakładka Na żywo: podgląd, suwaki czułości AI i obrazu, presety (Dzień, Noc, Deszcz, Czuły, Spokojny, Własny), cofnij.
+
+## 0.13.1
+- Panel: przełącznik Auto-presety w zakładce Na żywo.
