@@ -106,3 +106,6 @@
 
 ## 0.8.9
 - Obrys prostszy: wypukly, max 8 punktow.
+
+## 0.9.0
+- Panel v35: przyciski aut w jednym rzedzie pod miniatura (bez lamania tekstu).

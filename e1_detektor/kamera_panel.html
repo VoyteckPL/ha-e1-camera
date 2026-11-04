@@ -21,8 +21,8 @@ h2{font-size:13px;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;
 .tags{display:flex;flex-wrap:wrap;gap:5px}
 .tag{font-size:12px;border-radius:10px;padding:2px 8px;background:var(--bd);color:var(--tx)}
 .tag.p{background:#10b981;color:#000}
-.cars{display:flex;flex-direction:column;gap:6px;margin:4px 0}.car{display:flex;gap:8px;align-items:center}.car img{height:44px;width:64px;object-fit:cover;border-radius:8px;background:#000;flex:none}.car .cn{font-size:12px;color:var(--mu)}
-.btn.sm{padding:3px 9px;font-size:12px}.row.lab{margin-bottom:4px}
+.cars{display:flex;flex-direction:column;gap:6px;margin:4px 0}.car{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center}.car img{height:44px;width:64px;object-fit:cover;border-radius:8px;background:#000;flex:none}.car .cn{font-size:12px;color:var(--mu);flex:1 1 0;min-width:0}.car .row.lab{flex:1 1 100%;flex-wrap:nowrap;gap:4px}
+.btn.sm{padding:5px 4px;font-size:12px;white-space:nowrap;flex:1 1 0;min-width:0;text-align:center}.row.lab{margin-bottom:4px}
 .tag.a{background:#3b82f6;color:#fff}
 #pk{display:none;gap:8px;padding:6px 12px;overflow-x:auto;align-items:center}#pk.on{display:flex}
 #pk .pt{font-size:13px;color:var(--mu);flex:none}
@@ -81,7 +81,7 @@ input[type=text]{font:inherit;padding:6px 8px;border-radius:10px;border:1px soli
 <div id="pk"></div>
 <main id="m"></main>
 
-<div id="st" class="full"><h1 style="padding-top:8px"><span>Strefy i powiadomienia <span id="sv"></span> <small style="color:var(--mu);font-weight:400">v34</small></span><button class="btn" id="stx">Zamknij</button></h1>
+<div id="st" class="full"><h1 style="padding-top:8px"><span>Strefy i powiadomienia <span id="sv"></span> <small style="color:var(--mu);font-weight:400">v35</small></span><button class="btn" id="stx">Zamknij</button></h1>
 <p class="opis">Narysuj strefy na zdjęciu (punkty przyciągają się do innych stref i krawędzi), nazwij je i ustaw osobne powiadomienia. Wszystko poza strefami to „Poza strefami”. Zmiany zapisują się same.</p>
 <select id="gsel" style="width:100%;margin-bottom:8px"></select>
 <div id="zch" class="seg" style="margin-bottom:8px"></div>
@@ -171,7 +171,7 @@ async function loadAuta(){try{const c=await api({cmd:'auta'});AUTA=c.auta||[];la
 async function doLabel(b,id,i){const x=ALL.find(z=>z.b==b);if(!x)return;const pj=(x.pojazdy||[]).find(p=>String(p.i)==String(i));try{const o={cmd:'etykieta',b:b,crop:pj?pj.crop:(x.crop||x.plik),auto:id};if(pj)o.i=pj.i;const c=await api(o);x.auto=c.auto;AUTA=c.auta||AUTA;if(pj){pj.nazwa=id=='obce'?'':c.auto}}catch(err){}last='';render();if(EV&&EV.b==b){EV.auto=x.auto;auRender()}setTimeout(()=>{last='';render();if(EV&&EV.b==b){const y=ALL.find(z=>z.b==b);if(y){EV=y;delete zi.dataset.u;showPhoto();auRender()}}},2500)}
 function chips(e,i,p){const cur=(p?p.nazwa:e.auto)||'';return AUTA.map(a=>{const n=a.nazwa+(a.opis?' ('+a.opis+')':'');return `<button class="btn sm${cur==n?' pri':''}" data-lab="${esc(e.b)}|${esc(a.id)}|${i}">${esc(a.nazwa.split(' ')[0])}</button>`}).join('')+`<button class="btn sm${(p&&!p.nazwa&&p.auto_id===undefined)?'':''}" data-lab="${esc(e.b)}|obce|${i}">Obce</button>`}
 function carsHtml(e){if(!AUTA.length)return '';const l=e.pojazdy||[];
-if(l.length)return '<div class="cars">'+l.map(p=>`<div class="car"><img src="${SN}${esc(p.crop)}"><div><div class="cn">${esc(p.nazwa||'Nieznane auto')}</div><div class="row lab">${chips(e,p.i,p)}</div></div></div>`).join('')+'</div>';
+if(l.length)return '<div class="cars">'+l.map(p=>`<div class="car"><img src="${SN}${esc(p.crop)}"><div class="cn">${esc(p.nazwa||'Nieznane auto')}</div><div class="row lab">${chips(e,p.i,p)}</div></div>`).join('')+'</div>';
 return `<div class="row lab">${chips(e,'',null)}</div>`}
 function auRender(){const el=$('au');if(!EV||EV.rodzaj!='Pojazd'||!AUTA.length){el.className='';return}
 el.className='on';el.innerHTML=carsHtml(EV)}
