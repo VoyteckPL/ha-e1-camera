@@ -254,11 +254,13 @@ async def cam_cmd(cmd, param=None, action=0, ch=0):
         body = [{"cmd": "Login", "param": {"User": {"Version": "0", "userName": _cam["user"], "password": _cam["pw"]}}}]
         async with _sess.post(_cam["base"] + "/api.cgi?cmd=Login", json=body, ssl=False, timeout=aiohttp.ClientTimeout(total=15)) as r:
             j = await r.json(content_type=None)
+        log.info("login kamera: %s", json.dumps(j)[:300])
         t = j[0]["value"]["Token"]
         _cam.update(token=t["name"], exp=time.time() + int(t.get("leaseTime", 3600)))
     body = [{"cmd": cmd, "action": action, "param": param or {"channel": ch}}]
     async with _sess.post(f"{_cam['base']}/api.cgi?cmd={cmd}&token={_cam['token']}", json=body, ssl=False, timeout=aiohttp.ClientTimeout(total=15)) as r:
         j = await r.json(content_type=None)
+    log.info("kamera %s -> %s", cmd, json.dumps(j)[:200])
     return j[0]
 
 

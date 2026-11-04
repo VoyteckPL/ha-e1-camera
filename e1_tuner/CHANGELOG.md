@@ -12,3 +12,6 @@
 
 ## 0.4.0
 - Bezposredni dostep do kamery (Isp) z danymi logowania z integracji Reolink: GET/POST /isp.
+
+## 0.4.1
+- Log odpowiedzi kamery (diagnostyka).
