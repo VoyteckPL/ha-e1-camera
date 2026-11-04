@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import tempfile
 import time
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -60,6 +61,8 @@ IN_H, IN_W = int(INP.shape[2]), int(INP.shape[3])
 log.info("model %s wejscie %sx%s, watki %s", MODEL_NAME, IN_W, IN_H, THREADS)
 
 LOCK = asyncio.Lock()
+GLOCK = asyncio.Lock()  # poprawa kadru z klipu: po jednym zdarzeniu naraz
+LAST_B = {}  # rodzaj -> ostatnie zdarzenie (nie nadpisuj nowszego powiadomienia starszym)
 
 
 def _grids():
@@ -360,6 +363,62 @@ def analiza_klip_sync(clip: Path, b, klasy):
         shutil.rmtree(tmpd, ignore_errors=True)
 
 
+def popraw_kadr_sync(clip, b, n0):
+    """Z klipu wybiera klatke z najwieksza liczba osob. Zwraca (crop, pelny, n), gdy jest ich wiecej niz n0."""
+    tmpd = tempfile.mkdtemp(prefix="e1g_")
+    try:
+        subprocess.run(
+            ["ffmpeg", "-y", "-loglevel", "error", "-i", str(clip), "-t", "20", "-vf", "fps=1.5", "-q:v", "3", f"{tmpd}/g_%02d.jpg"],
+            capture_output=True, text=True, timeout=120,
+        )
+        best = None
+        for f in sorted(Path(tmpd).glob("g_*.jpg")):
+            img = Image.open(f)
+            img.load()
+            boxes = detect(img, KLASY["osoba"], MIN_CONF)
+            if not boxes:
+                continue
+            bx, rect, n = wybierz_kadr(boxes, *img.size)
+            key = (n, box_score(bx, *img.size))
+            if best is None or key > best[0]:
+                best = (key, img, rect, n)
+        if not best or best[3] <= n0:
+            return None
+        crop, pelny = f"e1_crop_{b}_g.jpg", f"e1_best_{b}_g.jpg"
+        zapisz_kadr(best[1], best[2], SNAP / crop)
+        best[1].convert("RGB").save(SNAP / pelny, "JPEG", quality=90)
+        return crop, pelny, best[3]
+    finally:
+        shutil.rmtree(tmpd, ignore_errors=True)
+
+
+async def popraw_kadr(b, n0, rodzaj, lok, hm, powiadom, glosno):
+    """W tle: gdy w klipie jest klatka z wiekszą liczba osob niz na zdjeciu, podmienia kadr w historii i powiadomieniu."""
+    try:
+        clip = await czekaj_na_klip(b, 45)
+        if not clip:
+            return
+        loop = asyncio.get_running_loop()
+        async with GLOCK:
+            w = await loop.run_in_executor(None, popraw_kadr_sync, clip, b, n0)
+        if not w:
+            log.info("kadr %s: bez zmian (na zdjeciu %s os.)", b, n0)
+            return
+        crop, pelny, n = w
+        log.info("kadr %s: lepszy z klipu, osob %s -> %s", b, n0, n)
+        async with reolink.HA() as ha:
+            await ha.cmd({
+                "type": "fire_event",
+                "event_type": "kamera_zdarzenie_popr",
+                "event_data": {
+                    "b": b, "crop": crop, "plik": pelny, "n": n, "rodzaj": rodzaj, "lok": lok, "hm": hm,
+                    "pow": 1 if (powiadom and LAST_B.get(rodzaj) == b) else 0, "glosno": 1 if glosno else 0,
+                },
+            })
+    except Exception:
+        log.exception("popraw_kadr")
+
+
 async def analyze(request):
     d = await request.json()
     if str(d.get("b", "")) == "api":
@@ -429,6 +488,11 @@ async def analyze(request):
     res["lok"] = res["strefa"]
     res.update(strefy.decyzja(cfg, res["strefa_id"], rodzaj, res["found"], ctx))
     res["czas"] = round(time.time() - t0, 2)
+    LAST_B[rodzaj] = b
+    if rodzaj == "osoba" and res["found"]:
+        tz = strefy._tz()
+        hm = (datetime.now(tz) if tz else datetime.now()).strftime("%H:%M")
+        asyncio.create_task(popraw_kadr(b, res.get("n", 1), rodzaj, res["strefa"], hm, res.get("powiadom"), res.get("dzwiek", 1) == 1))
     asyncio.create_task(przygotuj_wideo(b))
     asyncio.create_task(reolink.reolink_wideo(b, rodzaj, SNAP / f"e1_v_{b}.mp4", MEDIA, przygotuj_wideo_sync))
     log.info("analiza %s %s -> %s", b, rodzaj, {k: res.get(k) for k in ("found", "conf", "strefa", "powiadom", "historia", "zrodlo", "czas")})
