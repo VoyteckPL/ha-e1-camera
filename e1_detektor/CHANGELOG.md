@@ -112,3 +112,6 @@
 
 ## 0.9.1
 - Panel v36: oznaczanie aut chowane (przycisk Oznacz auta / Ukryj).
+
+## 0.9.2
+- Rozpoznawanie aut po kolorach wewnatrz obrysu (bez tla) z wymaganym marginesem przewagi; skan i etykiety uzywaja wektorow cech; przycisk Obce sie zaznacza (panel v37).

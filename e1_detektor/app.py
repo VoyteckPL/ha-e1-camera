@@ -758,8 +758,11 @@ def adnotuj_sync(b, src: Path):
         _, rect, _ = wybierz_kadr([bx], iw, ih)
         crop = f"e1_crop_{b}_c{i}.jpg"
         zapisz_kadr(img, rect, SNAP / crop)
-        ra = auta.rozpoznaj(SNAP / crop)
-        items.append({"i": i, "crop": crop, "n": _norm(bx, iw, ih), "poly": segmentuj(img, _norm(bx, iw, ih)), "auto_id": ra["id"] if ra else None,
+        nn = _norm(bx, iw, ih)
+        poly = segmentuj(img, nn)
+        f = auta.cecha_maska(img, poly, nn)
+        ra = auta.rozpoznaj_wektor(f)
+        items.append({"i": i, "crop": crop, "n": nn, "poly": poly, "f": f, "auto_id": ra["id"] if ra else None,
                       "nazwa": auta.etykieta_pelna(ra) if ra else ""})
     if not items:
         return None
@@ -768,7 +771,8 @@ def adnotuj_sync(b, src: Path):
     _poj_save(m)
     out = f"e1_best_{b}_a0.jpg"
     rysuj(img, items).save(SNAP / out, "JPEG", quality=90)
-    return {"plik": out, "pojazdy": [_poj_publiczne(x) for x in items], "auto": ", ".join(x["nazwa"] for x in items if x["nazwa"])}
+    return {"plik": out, "pojazdy": [_poj_publiczne(x) for x in items], "auto": ", ".join(x["nazwa"] for x in items if x["nazwa"]),
+            "items": items}
 
 
 def przemaluj_sync(b, i, auto_id, nazwa):
@@ -887,7 +891,12 @@ async def analyze(request):
                 bb, cr, av = str(dane.get("b", "")), str(dane.get("crop", "")), str(dane.get("auto", ""))
                 if "/" in cr or not cr:
                     return web.json_response({"ok": False, "blad": "zly plik"})
-                a = auta.etykieta(SNAP / cr, av)
+                vec = None
+                if dane.get("i") is not None:
+                    ent = _poj_load().get(bb)
+                    if ent:
+                        vec = next((x.get("f") for x in ent["items"] if x["i"] == int(dane["i"])), None)
+                a = auta.etykieta_wektor(vec, av) if vec else auta.etykieta(SNAP / cr, av)
                 if a is None:
                     return web.json_response({"ok": False, "blad": "nieznane auto"})
                 nm = auta.etykieta_pelna(a) if av != auta.OBCE else "Obce auto"
@@ -896,7 +905,7 @@ async def analyze(request):
                       "auto": nm, "pow": 0, "glosno": 0}
                 if idx is not None:
                     w2 = await asyncio.get_running_loop().run_in_executor(
-                        None, przemaluj_sync, bb, int(idx), None if av == auta.OBCE else av, "" if av == auta.OBCE else nm)
+                        None, przemaluj_sync, bb, int(idx), av, nm)
                     if w2:
                         ev.update(plik=w2["plik"], pojazdy=w2["pojazdy"], auto=w2["auto"])
                 async with reolink.HA() as ha:
@@ -1047,36 +1056,28 @@ CAM = os.environ.get("E1_CAM", "camera.e1_outdoor_wysoka_rozdzielczosc")
 
 
 def skan_sync():
-    """Zdjecie z kamery teraz -> auta stojace na podjezdzie -> rejestr zaparkowanych (z rozpoznaniem)."""
+    """Zdjecie z kamery teraz -> auta (rozpoznane po obrysie) -> rejestr zaparkowanych."""
     import urllib.request
     rq = urllib.request.Request(reolink.URL + "/api/camera_proxy/" + CAM, headers={"Authorization": "Bearer " + reolink.TOKEN})
     data = urllib.request.urlopen(rq, timeout=20).read()
     tmp = SNAP / "e1_skan.jpg"
     tmp.write_bytes(data)
-    img = Image.open(tmp)
-    img.load()
-    iw, ih = img.size
+    iw, ih = Image.open(tmp).size
     cfg = strefy.wczytaj("")
     pid = _podjazd_id(cfg)
     stare = _park_lista()
+    ad = adnotuj_sync("skan", tmp)
     park = []
-    for i, bx in enumerate(_bez_duplikatow(detect(img, KLASY["pojazd"], MIN_CONF))):
-        _, rect, _ = wybierz_kadr([bx], iw, ih)
-        crop = f"e1_crop_skan_{i}.jpg"
-        zapisz_kadr(img, rect, SNAP / crop)
-        ra = auta.rozpoznaj(SNAP / crop)
-        if not ra and pid and strefy.przypisz(bx, iw, ih, cfg, "skan") != pid:
+    for it in (ad["items"] if ad else []):
+        n = it["n"]
+        px = [n[0] * iw, n[1] * ih, n[2] * iw, n[3] * ih]
+        if not it["auto_id"] and pid and strefy.przypisz(px, iw, ih, cfg, "skan") != pid:
             continue  # nieznane auto poza podjazdem (np. na ulicy) nie liczy sie jako zaparkowane
         t = time.time()
-        if ra:
-            t = next((p["t"] for p in stare if p.get("auto") == ra["id"]), t)
-        park.append({"t": t, "b": "skan", "box": _norm(bx, iw, ih), "auto": ra["id"] if ra else None,
-                     "nazwa": auta.etykieta_pelna(ra) if ra else "", "crop": crop})
+        if it["auto_id"]:
+            t = next((p["t"] for p in stare if p.get("auto") == it["auto_id"]), t)
+        park.append({"t": t, "b": "skan", "box": n, "auto": it["auto_id"], "nazwa": it["nazwa"], "crop": it["crop"]})
     _park_zapisz(park)
-    try:
-        adnotuj_sync("skan", tmp)
-    except Exception:
-        log.exception("skan adnotacja")
     return park
 
 

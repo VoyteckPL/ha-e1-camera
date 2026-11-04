@@ -82,7 +82,7 @@ input[type=text]{font:inherit;padding:6px 8px;border-radius:10px;border:1px soli
 <div id="pk"></div>
 <main id="m"></main>
 
-<div id="st" class="full"><h1 style="padding-top:8px"><span>Strefy i powiadomienia <span id="sv"></span> <small style="color:var(--mu);font-weight:400">v36</small></span><button class="btn" id="stx">Zamknij</button></h1>
+<div id="st" class="full"><h1 style="padding-top:8px"><span>Strefy i powiadomienia <span id="sv"></span> <small style="color:var(--mu);font-weight:400">v37</small></span><button class="btn" id="stx">Zamknij</button></h1>
 <p class="opis">Narysuj strefy na zdjęciu (punkty przyciągają się do innych stref i krawędzi), nazwij je i ustaw osobne powiadomienia. Wszystko poza strefami to „Poza strefami”. Zmiany zapisują się same.</p>
 <select id="gsel" style="width:100%;margin-bottom:8px"></select>
 <div id="zch" class="seg" style="margin-bottom:8px"></div>
@@ -169,8 +169,8 @@ function pkRender(){const h=H();const s=h&&h.states['sensor.kamera_zaparkowane']
 const sig=s.last_updated;if(sig==pkSig)return;pkSig=sig;const l=s.attributes.auta||[];
 el.className='on';el.innerHTML='<span class="pt">🚗 Zaparkowane: <b>'+esc(s.state)+'</b></span>'+l.map(a=>`<span class="pc">${a.crop?`<img src="${SN}${esc(a.crop)}">`:''}${esc(a.nazwa)} <small style="color:var(--mu)">od ${esc(a.od)}</small></span>`).join('')}
 async function loadAuta(){try{const c=await api({cmd:'auta'});AUTA=c.auta||[];last=''}catch(e){}}
-async function doLabel(b,id,i){const x=ALL.find(z=>z.b==b);if(!x)return;const pj=(x.pojazdy||[]).find(p=>String(p.i)==String(i));try{const o={cmd:'etykieta',b:b,crop:pj?pj.crop:(x.crop||x.plik),auto:id};if(pj)o.i=pj.i;const c=await api(o);x.auto=c.auto;AUTA=c.auta||AUTA;if(pj){pj.nazwa=id=='obce'?'':c.auto}}catch(err){}last='';render();if(EV&&EV.b==b){EV.auto=x.auto;auRender()}setTimeout(()=>{last='';render();if(EV&&EV.b==b){const y=ALL.find(z=>z.b==b);if(y){EV=y;delete zi.dataset.u;showPhoto();auRender()}}},2500)}
-function chips(e,i,p){const cur=(p?p.nazwa:e.auto)||'';return AUTA.map(a=>{const n=a.nazwa+(a.opis?' ('+a.opis+')':'');return `<button class="btn sm${cur==n?' pri':''}" data-lab="${esc(e.b)}|${esc(a.id)}|${i}">${esc(a.nazwa.split(' ')[0])}</button>`}).join('')+`<button class="btn sm${(p&&!p.nazwa&&p.auto_id===undefined)?'':''}" data-lab="${esc(e.b)}|obce|${i}">Obce</button>`}
+async function doLabel(b,id,i){const x=ALL.find(z=>z.b==b);if(!x)return;const pj=(x.pojazdy||[]).find(p=>String(p.i)==String(i));try{const o={cmd:'etykieta',b:b,crop:pj?pj.crop:(x.crop||x.plik),auto:id};if(pj)o.i=pj.i;const c=await api(o);x.auto=c.auto;AUTA=c.auta||AUTA;if(pj){pj.nazwa=c.auto;pj.auto_id=id}}catch(err){}last='';render();if(EV&&EV.b==b){EV.auto=x.auto;auRender()}setTimeout(()=>{last='';render();if(EV&&EV.b==b){const y=ALL.find(z=>z.b==b);if(y){EV=y;delete zi.dataset.u;showPhoto();auRender()}}},2500)}
+function chips(e,i,p){const cur=(p?p.nazwa:e.auto)||'';return AUTA.map(a=>{const n=a.nazwa+(a.opis?' ('+a.opis+')':'');return `<button class="btn sm${cur==n?' pri':''}" data-lab="${esc(e.b)}|${esc(a.id)}|${i}">${esc(a.nazwa.split(' ')[0])}</button>`}).join('')+`<button class="btn sm${(p?p.auto_id=='obce':e.auto=='Obce auto')?' pri':''}" data-lab="${esc(e.b)}|obce|${i}">Obce</button>`}
 const LABOPEN=new Set();
 function carsHtml(e){if(!AUTA.length)return '';const l=e.pojazdy||[];const o=LABOPEN.has(e.b);
 const tog=`<button class="btn sm tg" data-tog="${esc(e.b)}">${o?'▴ Ukryj oznaczanie':'▾ Oznacz auta'}</button>`;
