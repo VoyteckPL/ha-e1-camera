@@ -499,6 +499,21 @@ async def isp_api(request):
         return web.json_response({"ok": False, "blad": str(e)})
 
 
+async def cam_odczyt(request):
+    """GET /odczyt?c=GetAiAlarm&ai=people - tylko komendy Get* (diagnostyka/odkrywanie ustawien kamery)."""
+    c = request.query.get("c", "")
+    if not c.startswith("Get") or not c.isalnum():
+        return web.json_response({"ok": False, "blad": "tylko Get*"})
+    try:
+        param = {"channel": 0}
+        if request.query.get("ai"):
+            param["ai_type"] = request.query["ai"]
+        j = await cam_cmd(c, param=param, action=1)
+        return web.json_response({"ok": True, "odp": j})
+    except Exception as e:
+        return web.json_response({"ok": False, "blad": str(e)})
+
+
 async def eksport(request):
     n = min(5000, int(request.query.get("n", 500)))
     plik = {"probki": F_PROBKI, "zdarzenia": F_ZDARZ, "etykiety": F_ETYK}.get(request.query.get("co", "probki"), F_PROBKI)
@@ -514,7 +529,7 @@ async def on_start(app):
 
 def main():
     app = web.Application()
-    app.add_routes([web.get("/status", status), web.get("/dane", eksport), web.get("/isp", isp_api), web.post("/isp", isp_api)])
+    app.add_routes([web.get("/status", status), web.get("/dane", eksport), web.get("/isp", isp_api), web.get("/odczyt", cam_odczyt), web.post("/isp", isp_api)])
     app.on_startup.append(on_start)
     web.run_app(app, host="0.0.0.0", port=8100)
 

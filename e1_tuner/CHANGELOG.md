@@ -21,3 +21,6 @@
 
 ## 0.5.0
 - Płynne auto-strojenie: czułości AI/ruchu i obraz interpolowane z jasności zewnętrznej (log), deszcz/śnieg jako płynny współczynnik, DRC kamery nocą, ręczna zmiana wstrzymuje suwak na 3 h, dobowe uczenie poprawek z oznaczeń Fałszywy.
+
+## 0.5.1
+- GET /odczyt?c=Get... (tylko odczyt, diagnostyka ustawien kamery).
