@@ -725,7 +725,8 @@ def _bez_duplikatow(boxes):
         for k in kept:
             ix = max(0.0, min(bx[2], k[2]) - max(bx[0], k[0]))
             iy = max(0.0, min(bx[3], k[3]) - max(bx[1], k[1]))
-            if ix * iy / area > 0.6:
+            ak = max(1.0, (k[2] - k[0]) * (k[3] - k[1]))
+            if ix * iy / area > 0.6 or ix * iy / (area + ak - ix * iy) > 0.35:
                 dup = True
                 break
         if not dup:

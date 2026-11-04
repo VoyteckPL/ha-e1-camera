@@ -94,3 +94,6 @@
 
 ## 0.8.5
 - Usuwanie podwojnych wykryc tego samego auta (ramka zawarta w innej).
+
+## 0.8.6
+- Dedupe aut: tez przy IoU > 0.35.
