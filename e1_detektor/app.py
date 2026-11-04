@@ -237,7 +237,11 @@ async def przygotuj_wideo(b):
         out = SNAP / f"e1_v_{b}.mp4"
         ok = await asyncio.get_running_loop().run_in_executor(None, przygotuj_wideo_sync, clip, out)
         if ok:
-            log.info("wideo gotowe %s (%.1f MB)", out.name, out.stat().st_size / 1e6)
+            try:
+                dur = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(out)], capture_output=True, text=True, timeout=20).stdout.strip()
+            except Exception:
+                dur = "?"
+            log.info("wideo gotowe %s (%.1f MB, %s s)", out.name, out.stat().st_size / 1e6, dur)
     except Exception:
         log.exception("wideo %s", b)
 

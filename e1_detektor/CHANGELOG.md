@@ -24,3 +24,6 @@
 
 ## 0.3.2
 - Edytor: zoom kółkiem obsługiwany na poziomie okna (pewniejszy), znacznik wersji panelu.
+
+## 0.3.3
+- Log: czas trwania wideo.
