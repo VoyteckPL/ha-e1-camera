@@ -85,3 +85,6 @@
 
 ## 0.8.2
 - Skan zapisuje tez kadr z obrysami (e1_best_skan_a0.jpg).
+
+## 0.8.3
+- Panel v34: ponawia pobranie listy aut, gdy dodatek chwilowo niedostepny (znikaly przyciski oznaczania).

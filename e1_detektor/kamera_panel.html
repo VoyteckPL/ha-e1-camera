@@ -81,7 +81,7 @@ input[type=text]{font:inherit;padding:6px 8px;border-radius:10px;border:1px soli
 <div id="pk"></div>
 <main id="m"></main>
 
-<div id="st" class="full"><h1 style="padding-top:8px"><span>Strefy i powiadomienia <span id="sv"></span> <small style="color:var(--mu);font-weight:400">v33</small></span><button class="btn" id="stx">Zamknij</button></h1>
+<div id="st" class="full"><h1 style="padding-top:8px"><span>Strefy i powiadomienia <span id="sv"></span> <small style="color:var(--mu);font-weight:400">v34</small></span><button class="btn" id="stx">Zamknij</button></h1>
 <p class="opis">Narysuj strefy na zdjęciu (punkty przyciągają się do innych stref i krawędzi), nazwij je i ustaw osobne powiadomienia. Wszystko poza strefami to „Poza strefami”. Zmiany zapisują się same.</p>
 <select id="gsel" style="width:100%;margin-bottom:8px"></select>
 <div id="zch" class="seg" style="margin-bottom:8px"></div>
@@ -325,5 +325,5 @@ if(t.type=='checkbox')setU(d.z,d.k,{n:t.checked?1:0});else if(t.type=='time'&&t.
 document.addEventListener('keydown',e=>{if(e.key=='Escape')closeEv()});
 
 function ping(){if(document.visibilityState!='visible')return;const h=H();if(h)h.callService('input_text','set_value',{entity_id:'input_text.kamera_panel_ping',value:String(Math.floor(Date.now()/1000))})}
-render();loadCfg();loadAuta();chkUrl();setInterval(()=>{render();pkRender();chkUrl()},1500);ping();setInterval(ping,10000);document.addEventListener('visibilitychange',ping);
+render();loadCfg();loadAuta();chkUrl();setInterval(()=>{render();pkRender();chkUrl()},1500);setInterval(()=>{if(!AUTA.length)loadAuta()},8000);ping();setInterval(ping,10000);document.addEventListener('visibilitychange',ping);
 </script></body></html>
