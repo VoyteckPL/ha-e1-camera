@@ -30,3 +30,6 @@
 
 ## 0.4.0
 - Wideo: główne źródło to nagranie Reolinka z karty SD (z pre-recordem). Klip z HA zostaje jako szybki podgląd i zapas. Wymaga dostępu add-onu do API HA.
+
+## 0.4.1
+- Pobieranie nagrań: podpisany adres bez nagłówka Authorization.

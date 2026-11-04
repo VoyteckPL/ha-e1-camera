@@ -105,7 +105,11 @@ async def pobierz(ha, mid, cel: Path):
         url = URL + url
     tmp = cel.with_suffix(".part")
     async with aiohttp.ClientSession() as s:
-        async with s.get(url, headers={"Authorization": "Bearer " + TOKEN}, timeout=aiohttp.ClientTimeout(total=300)) as resp:
+        # adres z authSig jest podpisany: bez naglowka Authorization (z nim HA odpowiada 400)
+        hdr = {} if "authSig=" in url else {"Authorization": "Bearer " + TOKEN}
+        async with s.get(url, headers=hdr, timeout=aiohttp.ClientTimeout(total=300)) as resp:
+            if resp.status >= 400:
+                raise RuntimeError("pobieranie %s: %s" % (resp.status, (await resp.text())[:200]))
             resp.raise_for_status()
             with open(tmp, "wb") as fh:
                 async for chunk in resp.content.iter_chunked(1 << 20):
