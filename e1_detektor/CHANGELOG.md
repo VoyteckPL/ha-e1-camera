@@ -44,3 +44,6 @@
 - Panel (v27): arkusz zdarzenia na pełnym ekranie (zdjęcie i wideo), zoom szczypnięciem, kółkiem i podwójnym dotknięciem.
 - Ikona zapisu zdjęcia lub wideo (udostępnianie na telefonie / pobieranie na komputerze).
 - Przełącznik „Wycinek” / „Cały kadr”.
+
+## 0.4.5
+- Panel (v28): przycisk wyciszenia dźwięku w odtwarzaczu wideo (zapamiętuje wybór).

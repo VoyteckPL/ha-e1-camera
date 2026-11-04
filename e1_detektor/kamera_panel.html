@@ -71,7 +71,7 @@ input[type=text]{font:inherit;padding:6px 8px;border-radius:10px;border:1px soli
 <header><h1><span>Kamera</span><span class="bt"><button class="btn" id="vw">Oś czasu</button><button class="btn" id="stb">Strefy i powiadomienia</button><button class="btn" id="clr">Wyczyść</button></span></h1><div id="fl"></div></header>
 <main id="m"></main>
 
-<div id="st" class="full"><h1 style="padding-top:8px"><span>Strefy i powiadomienia <span id="sv"></span> <small style="color:var(--mu);font-weight:400">v27</small></span><button class="btn" id="stx">Zamknij</button></h1>
+<div id="st" class="full"><h1 style="padding-top:8px"><span>Strefy i powiadomienia <span id="sv"></span> <small style="color:var(--mu);font-weight:400">v28</small></span><button class="btn" id="stx">Zamknij</button></h1>
 <p class="opis">Narysuj strefy na zdjęciu (punkty przyciągają się do innych stref i krawędzi), nazwij je i ustaw osobne powiadomienia. Wszystko poza strefami to „Poza strefami”. Zmiany zapisują się same.</p>
 <select id="gsel" style="width:100%;margin-bottom:8px"></select>
 <div id="zch" class="seg" style="margin-bottom:8px"></div>
@@ -82,7 +82,7 @@ input[type=text]{font:inherit;padding:6px 8px;border-radius:10px;border:1px soli
 <div id="sh"><div id="sp">
 <div id="sph"><div><b id="sht"></b><small id="shs"></small></div><span class="bt"><button class="btn ic" id="bsv" title="Zapisz"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v3h16v-3"/></svg></button><button class="btn ic" id="shx" title="Zamknij">✕</button></span></div>
 <div id="zw"><img id="zi"><video id="zv" playsinline muted style="display:none"></video><div id="vm"></div></div>
-<div id="vc"><button class="btn" id="vp">▶</button><input type="range" id="vr" min="0" max="1000" value="0"><span class="tm" id="vt">0:00</span></div>
+<div id="vc"><button class="btn" id="vp">▶</button><input type="range" id="vr" min="0" max="1000" value="0"><span class="tm" id="vt">0:00</span><button class="btn" id="vmu" title="Dźwięk">🔊</button></div>
 <div id="sb"><button class="btn pri" id="bph">Wycinek</button><button class="btn" id="bfu" hidden>Cały kadr</button><button class="btn" id="bvd">Wideo</button></div>
 </div></div>
 
@@ -179,7 +179,10 @@ function closeEv(){zv.pause();clearTimeout(poll);$('sh').className='';EV=null;
 try{const u=new URL(parent.location.href);if(u.searchParams.has('e')){u.searchParams.delete('e');parent.history.replaceState(null,'',u)}}catch(_){}}
 $('vp').onclick=()=>{zv.paused?zv.play():zv.pause()};
 zv.addEventListener('play',()=>$('vp').textContent='❚❚');zv.addEventListener('pause',()=>$('vp').textContent='▶');
-zv.addEventListener('loadedmetadata',()=>{zv.muted=false;zv.play().catch(()=>{zv.muted=true;zv.play().catch(()=>{})})});
+let MU=false;try{MU=localStorage.getItem('km')=='1'}catch(e){}
+function muIcon(){$('vmu').textContent=zv.muted?'🔇':'🔊'}
+function setMu(m,keep){zv.muted=m;muIcon();if(keep)try{localStorage.setItem('km',m?'1':'0')}catch(e){}}
+zv.addEventListener('loadedmetadata',()=>{setMu(MU);zv.play().catch(()=>{setMu(true);zv.play().catch(()=>{})})});
 zv.addEventListener('timeupdate',()=>{if(!seeking&&zv.duration)$('vr').value=zv.currentTime/zv.duration*1000;$('vt').textContent=fmt(zv.currentTime)+' / '+fmt(zv.duration||0)});
 zv.addEventListener('error',()=>{if(zv.style.display!='none'&&zv.dataset.src){delete zv.dataset.src;poll=setTimeout(tryVideo,2500)}});
 let seeking=false;const vr=$('vr');
@@ -267,6 +270,7 @@ else if(t.id=='shx'||ev.target.id=='sh'){closeEv()}
 else if(t.id=='bph'){showPhoto('crop')}
 else if(t.id=='bfu'){showPhoto('full')}
 else if(t.id=='bsv'){saveCur()}
+else if(t.id=='vmu'){MU=!zv.muted;setMu(MU,true)}
 else if(t.id=='bvd'){showVideo()}
 else if(t.id=='stb'){openSt()}
 else if(t.id=='stx'){$('st').className='full';last=''}
