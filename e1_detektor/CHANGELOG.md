@@ -130,3 +130,6 @@
 
 ## 0.9.7
 - Log wykrytych aut przy skanie (diagnostyka).
+
+## 0.9.8
+- Log wyników rozpoznawania dla nierozpoznanych aut.

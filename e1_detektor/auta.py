@@ -122,6 +122,7 @@ def rozpoznaj_wektor(v):
     bs, best = scores[0]
     second = scores[1][0] if len(scores) > 1 else 0.0
     if best is None or bs < PROG or (bs - second) < MARGINES:
+        log.info("nierozpoznane: %s", [(a['id'] if a else 'obce', round(x, 2)) for x, a in scores])
         return None
     return {"id": best["id"], "nazwa": best["nazwa"], "opis": best.get("opis", ""), "score": round(bs, 2)}
 
