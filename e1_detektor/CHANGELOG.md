@@ -168,3 +168,6 @@
 
 ## 0.13.2
 - Preset Noc: jasność 165, kontrast 125, nasycenie 120 (sprawdzone na obrazie z kamery, kolor zachowany).
+
+## 0.14.0
+- Panel: opis auto-strojenia (płynne dopasowanie).

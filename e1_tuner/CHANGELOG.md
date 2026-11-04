@@ -18,3 +18,6 @@
 
 ## 0.4.2
 - GET /isp zwraca tez zakresy parametrow.
+
+## 0.5.0
+- Płynne auto-strojenie: czułości AI/ruchu i obraz interpolowane z jasności zewnętrznej (log), deszcz/śnieg jako płynny współczynnik, DRC kamery nocą, ręczna zmiana wstrzymuje suwak na 3 h, dobowe uczenie poprawek z oznaczeń Fałszywy.

@@ -1,6 +1,7 @@
 """E1 strojenie 0.1 - tylko zbiera dane (kontekst + metryki obrazu + zdarzenia + etykiety). Nie zmienia ustawien kamery."""
 import asyncio
 import json
+import math
 import logging
 import os
 import time
@@ -285,57 +286,152 @@ N = "number.e1_outdoor_"
 E_OS, E_PO, E_ZW, E_RU = (N + "czulosc_wykrywania_osob_przez_ai", N + "czulosc_wykrywania_pojazdow_przez_ai",
                           N + "czulosc_wykrywania_zwierzat_przez_ai", N + "czulosc_na_ruch")
 E_JA, E_KO, E_NA, E_OT = N + "jasnosc_obrazu", N + "kontrast_obrazu", N + "nasycenie_obrazu", N + "ostrosc_obrazu"
-# te same wartosci co presety w panelu (kamera_panel.html)
-P_DZIEN = {E_OS: 50, E_PO: 50, E_ZW: 50, E_RU: 35, E_JA: 128, E_KO: 128, E_NA: 128, E_OT: 128}
-P_NOC = {E_OS: 70, E_PO: 75, E_ZW: 65, E_RU: 40, E_JA: 165, E_KO: 125, E_NA: 120, E_OT: 120}
-P_DESZCZ = {E_OS: 65, E_PO: 65, E_ZW: 55, E_RU: 25}
-LUX_NOC, LUX_DZIEN = 15, 30  # histereza: noc <15 lx, dzien >30 lx
-DESZCZ_PO_S = 20 * 60  # po deszczu jeszcze 20 min (krople na obiektywie)
-_auto = {"baza": None, "deszcz": None, "od": None, "opis": "", "ostatnia": 0}
+# --- plynne auto-strojenie: wartosci docelowe wyliczane z ciaglej jasnosci zewnetrznej, deszczu/sniegu i nauczonych poprawek ---
+DAY = {E_OS: 50, E_PO: 50, E_ZW: 50, E_RU: 35, E_JA: 128, E_KO: 128, E_NA: 128, E_OT: 128}
+NIGHT = {E_OS: 70, E_PO: 75, E_ZW: 65, E_RU: 40, E_JA: 165, E_KO: 125, E_NA: 120, E_OT: 120}
+DELTA_WET = {E_OS: -5, E_PO: -10, E_ZW: -10, E_RU: -10}  # przy deszczu/sniegu (skalowane 0..1)
+SENS = (E_OS, E_PO, E_ZW, E_RU)
+DRC_DAY, DRC_NOC = 128, 170
+LUX_JASNO, LUX_CIEMNO = 60.0, 8.0  # powyzej: pelny dzien, ponizej: pelna noc, pomiedzy plynnie (skala log)
+DESZCZ_PO_S = 20 * 60
+HOLD_S = 3 * 3600  # reczna zmiana suwaka wstrzymuje auto dla tego suwaka na 3 h
+RODZAJ_ENT = {"Osoba": E_OS, "Pojazd": E_PO, "Zwierzę": E_ZW}
+F_OFF = DATA / "offsety.json"
+_auto = {"f": None, "wet": 0.0, "od": None, "opis": "", "wlaczone": False, "applied": {}, "hold": {}, "drc": None, "ucz_dzien": None}
 
 
-async def ustaw(eid, val):
+def f_noc(lux):
+    l = max(float(lux), 1.0)
+    f = (math.log10(LUX_JASNO) - math.log10(l)) / (math.log10(LUX_JASNO) - math.log10(LUX_CIEMNO))
+    return min(1.0, max(0.0, f))
+
+
+def mokro(c):
+    r = 0.0
+    if c.get("deszcz"):
+        r = 1.0
+    elif c.get("deszcz") == 0 and c.get("deszcz_zmiana_s") is not None and c["deszcz_zmiana_s"] < DESZCZ_PO_S:
+        r = 1.0 - c["deszcz_zmiana_s"] / DESZCZ_PO_S
+    p = str(c.get("pogoda") or "")
+    if p in ("snowy", "snowy-rainy", "hail"):
+        r = max(r, 1.0)
+    elif p in ("rainy", "pouring", "lightning-rainy"):
+        r = max(r, 0.6)
+    return r
+
+
+def _offsety():
     try:
-        async with _sess.post(f"{API}/services/number/set_value", headers=H(), json={"entity_id": eid, "value": val},
-                              timeout=aiohttp.ClientTimeout(total=15)) as r:
-            return r.status < 300
+        return json.load(open(F_OFF))
     except Exception:
-        return False
+        return {}
+
+
+def ucz_offsety():
+    """Raz na dobe: z ostatnich 7 dni (zdarzenia + Twoje 'falszywe') koryguje czulosc osobno dla dnia i nocy. Maly krok, twarde granice."""
+    od = time.time() - 7 * 86400
+    etyk = {}
+    for e in _wczytaj(F_ETYK, 5000):
+        etyk[e["b"]] = e.get("falszywy", 0)
+    kub = {}
+    for e in _wczytaj(F_ZDARZ, 5000):
+        ent = RODZAJ_ENT.get(e.get("rodzaj"))
+        try:
+            if not ent or datetime.strptime(e["czas"], "%Y-%m-%d %H:%M:%S").timestamp() < od:
+                continue
+        except Exception:
+            continue
+        pora = "noc" if ((e.get("ctx") or {}).get("lux") or 0) < LUX_CIEMNO + 7 else "dzien"
+        k = kub.setdefault((ent, pora), [0, 0])
+        k[0] += 1
+        k[1] += 1 if etyk.get(e["b"]) else 0
+    off = _offsety()
+    for (ent, pora), (n, fal) in kub.items():
+        key = f"{ent}|{pora}"
+        v = off.get(key, 0)
+        if n >= 8 and fal / n > 0.35:
+            v = max(-20, v - 5)
+        elif n >= 12 and fal / n < 0.08:
+            v = min(10, v + 3)
+        off[key] = v
+        log.info("uczenie %s: n=%d falszywych=%d -> poprawka %+d", key, n, fal, v)
+    json.dump(off, open(F_OFF, "w"))
+
+
+def cele(f, w):
+    off = _offsety()
+    t = {}
+    for e in DAY:
+        v = DAY[e] + f * (NIGHT[e] - DAY[e])
+        if e in SENS:
+            v += (1 - f) * off.get(f"{e}|dzien", 0) + f * off.get(f"{e}|noc", 0)
+            v += DELTA_WET.get(e, 0) * w
+            v = min(95, max(20, v))
+        t[e] = int(round(v))
+    return t
 
 
 async def petla_auto():
-    """Gdy wlaczony input_boolean.kamera_auto_presety: noc/dzien wg jasnosci zewnetrznej + deszcz. Zmiany tylko przy przejsciu stanu."""
-    await asyncio.sleep(40)
+    """Co 2 min: plynnie dopasowuje czulosci i obraz do jasnosci/pogody. Reczne zmiany suwakow wstrzymuja auto dla danego suwaka na 3 h."""
+    await asyncio.sleep(45)
     while True:
         try:
             on = (await stan(AUTO) or {}).get("state") == "on"
             _auto["wlaczone"] = on
             if on:
-                c = _last_ctx or await kontekst()
+                c = await kontekst()
                 lux = c.get("lux")
                 if lux is not None:
-                    baza = _auto["baza"]
-                    if baza != "noc" and lux < LUX_NOC:
-                        baza = "noc"
-                    elif baza != "dzien" and lux > LUX_DZIEN:
-                        baza = "dzien"
-                    elif baza is None:
-                        baza = "noc" if lux < (LUX_NOC + LUX_DZIEN) / 2 else "dzien"
-                    pada = bool(c.get("deszcz")) or (c.get("deszcz_zmiana_s") is not None and c.get("deszcz") == 0 and c["deszcz_zmiana_s"] < DESZCZ_PO_S)
-                    if (baza, pada) != (_auto["baza"], _auto["deszcz"]):
-                        vals = dict(P_NOC if baza == "noc" else P_DZIEN)
-                        if pada:
-                            vals.update(P_DESZCZ)
-                        ok = [await ustaw(e, v) for e, v in vals.items()]
-                        _auto.update(baza=baza, deszcz=pada, od=int(time.time()), opis=("Noc" if baza == "noc" else "Dzień") + (" + deszcz" if pada else ""))
-                        zapisz(DATA / "zmiany.jsonl", {"t": int(time.time()), "preset": _auto["opis"], "lux": lux, "ok": all(ok)})
-                        log.info("auto-preset: %s (lux=%s, ok=%s)", _auto["opis"], lux, all(ok))
-                        await pchnij()
+                    f0 = f_noc(lux)
+                    f = f0 if _auto["f"] is None else _auto["f"] + 0.5 * (f0 - _auto["f"])  # wygladzanie
+                    w = mokro(c)
+                    _auto.update(f=f, wet=w)
+                    now = time.time()
+                    if time.localtime().tm_hour == 4 and _auto["ucz_dzien"] != time.strftime("%Y-%m-%d"):
+                        _auto["ucz_dzien"] = time.strftime("%Y-%m-%d")
+                        ucz_offsety()
+                    zm = {}
+                    for e, tv in cele(f, w).items():
+                        cur = _num((await stan(e) or {}).get("state"))
+                        ap = _auto["applied"].get(e)
+                        if cur is not None and ap is not None and abs(cur - ap) >= 2:  # ktos zmienil recznie
+                            _auto["hold"][e] = now + HOLD_S
+                            _auto["applied"].pop(e, None)
+                        if now < _auto["hold"].get(e, 0) or cur is None:
+                            continue
+                        if abs(tv - cur) >= 3 or (e == E_RU and tv != cur and abs(tv - cur) >= 2):
+                            if await ustaw(e, tv):
+                                _auto["applied"][e] = tv
+                                zm[e.split(".")[1][-18:]] = tv
+                    # DRC kamery: wlacza sie przy zmroku (histereza 0.2/0.35), sila rosnie z ciemnoscia
+                    if _auto["drc"] is None:  # pierwszy obieg: odczytaj aktualny stan DRC z kamery
+                        try:
+                            ii = await isp_get()
+                            _auto["drc"] = int(ii.get("drc", 0)) if ii.get("backLight") == "DynamicRangeControl" else 0
+                        except Exception as ex:
+                            log.warning("isp: %s", ex)
+                            _auto["drc"] = 0
+                    drc_on = _auto["drc"] > 0
+                    want = f >= 0.35 or (drc_on and f >= 0.2)
+                    drc_v = int(round(DRC_DAY + f * (DRC_NOC - DRC_DAY))) if want else 0
+                    if (drc_v > 0) != drc_on or (drc_v > 0 and abs(drc_v - (_auto["drc"] or 0)) >= 8):
+                        try:
+                            await isp_set({"backLight": "DynamicRangeControl" if drc_v else "Off", "drc": drc_v or DRC_DAY})
+                            _auto["drc"] = drc_v
+                            zm["drc"] = drc_v
+                        except Exception as ex:
+                            log.warning("drc: %s", ex)
+                    _auto["opis"] = f"{'Noc' if f > 0.5 else 'Dzień'} {round(f * 100)}%" + (f" · deszcz/śnieg {round(w * 100)}%" if w > 0.05 else "")
+                    if zm:
+                        _auto["od"] = int(now)
+                        zapisz(DATA / "zmiany.jsonl", {"t": int(now), "f": round(f, 2), "wet": round(w, 2), "lux": lux, "zm": zm})
+                        log.info("auto: %s -> %s", _auto["opis"], zm)
+                    await pchnij()
             else:
-                _auto.update(baza=None, deszcz=None)  # po wylaczeniu i ponownym wlaczeniu ustaw preset od nowa
+                _auto.update(f=None, applied={}, hold={}, drc=None)
         except Exception:
             log.exception("auto")
-        await asyncio.sleep(60)
+        await asyncio.sleep(120)
 
 
 def podsumowanie():
@@ -360,7 +456,7 @@ def podsumowanie():
         seria.append({"t": p["t"], "jasn": o.get("jasn"), "lux": p.get("lux"), "szum": o.get("szum"), "ostr": o.get("ostrosc"),
                       "prz": o.get("przepal"), "czern": o.get("czern"), "dz": p.get("deszcz")})
     return {"tryb": OPTS.get("tryb", "zbieranie"), "ctx": _last_ctx, "stat": _stat, "zd7": zd, "etykiet": len(etyk), "seria": seria,
-            "auto": {"wlaczone": _auto.get("wlaczone", False), "opis": _auto["opis"], "od": _auto["od"]}}
+            "auto": {"wlaczone": _auto.get("wlaczone", False), "opis": _auto["opis"], "od": _auto["od"], "f": _auto["f"], "wet": _auto["wet"]}}
 
 
 async def pchnij():

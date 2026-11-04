@@ -114,7 +114,7 @@ body[data-tab=zd] #nav [data-tab=zd],body[data-tab=live] #nav [data-tab=live],bo
 <div class="set"><h3>Strefy i powiadomienia</h3><p class="opis" style="margin:0">Rysowanie stref na zdjęciu oraz osobne powiadomienia dla osób, aut i zwierząt w każdej strefie.</p><button class="btn pri big" id="stb">Otwórz</button></div>
 <div class="set"><h3>Strojenie</h3><p class="opis" style="margin:0" id="tus">Zbieranie danych do uczenia czułości.</p><button class="btn big" id="tub">Pokaż dane</button></div>
 <div class="set"><h3>Historia</h3><p class="opis" style="margin:0">Usuwa wszystkie zdarzenia z panelu (pliki zostaną posprzątane automatycznie).</p><button class="btn big" id="clr">Wyczyść historię</button></div>
-<p class="opis" style="text-align:center">Panel kamery v42</p>
+<p class="opis" style="text-align:center">Panel kamery v45</p>
 </section>
 <nav id="nav"><button data-tab="zd"><i>🗂</i><span>Zdarzenia</span></button><button data-tab="live"><i>🎥</i><span>Na żywo</span></button><button data-tab="ust"><i>⚙️</i><span>Ustawienia</span></button></nav>
 
@@ -385,7 +385,7 @@ document.querySelectorAll('[data-sl]').forEach(r=>{const e=r.dataset.sl,s=h.stat
 document.querySelectorAll('[data-se]').forEach(sel=>{const s=h.states[sel.dataset.se];if(!s)return;const o=s.attributes.options||[];if(sel.dataset.o!=o.join('|')){sel.innerHTML=o.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');sel.dataset.o=o.join('|')}if(document.activeElement!==sel)sel.value=s.state});
 const ab=h.states['input_boolean.kamera_auto_presety'],on=ab&&ab.state=='on',ts=h.states['sensor.kamera_strojenie'],au=(ts&&ts.attributes.auto)||{};
 const bt=$('lvauto');if(bt){bt.textContent=ab?(on?'🤖 Auto-presety: WŁĄCZONE':'🤖 Auto-presety: wyłączone'):'🤖 Auto-presety niedostępne';bt.classList.toggle('pri',!!on)}
-const inf=$('lvainf');if(inf)inf.textContent=on?(au.opis?'Aktywny: '+au.opis+(au.od?' (od '+new Date(au.od*1000).toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})+')':''):'Czekam na pierwszą decyzję (do ok. minuty)…')+'. Noc przy jasności < 15 lx, dzień > 30 lx, deszcz z czujnika (i 20 min po).':'Włącz, a Noc/Dzień/Deszcz będą przełączane same wg jasności zewnętrznej i czujnika deszczu. Ręczne zmiany suwakami działają do następnego przełączenia.';
+const inf=$('lvainf');if(inf)inf.textContent=on?('Teraz: '+(au.opis||'liczę…')+(au.od?' · ostatnia zmiana '+new Date(au.od*1000).toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'}):'')+'. Płynnie dopasowuję czułości i obraz do jasności zewnętrznej, deszczu i śniegu. Gdy ruszysz suwak ręcznie, ten suwak zostaje Twój na 3 h.'):'Włącz, a czułości i obraz będą płynnie dopasowywane do jasności zewnętrznej, deszczu i śniegu (na noc także DRC kamery).';
 const w=wlasny();
 document.querySelectorAll('#pre button').forEach(b=>{const id=b.dataset.pre;let v=id=='wlasny'?w:(PRES.find(p=>p[0]==id)||[])[4];b.style.display=id=='wlasny'&&!w?'none':'';b.classList.toggle('on',!!v&&Object.keys(v).every(e=>lvNum(e)===+v[e]))})}
 async function lvSet(e,v){const h=H();if(!h)return;try{await h.callWS({type:'call_service',domain:'number',service:'set_value',service_data:{entity_id:e,value:+v}})}catch(x){}}
