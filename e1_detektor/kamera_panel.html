@@ -36,7 +36,7 @@ h2{font-size:13px;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;
 .tc img{width:84px;height:63px;flex:none;object-fit:cover;border-radius:8px;background:#000;cursor:pointer;display:block}
 .tc .body{padding:0;gap:4px}
 .full{position:fixed;inset:0;background:var(--bg);z-index:16;overflow:auto;display:none;padding:0 12px 40px}.full.on{display:block}
-#grw{position:relative;width:100%;aspect-ratio:4/3;cursor:crosshair;touch-action:none;overflow:hidden;background:#000;border-radius:10px;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}#grw *{user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}#grz{position:absolute;inset:0;transform-origin:0 0;will-change:transform}#grz img{width:100%;height:100%;display:block;object-fit:fill;pointer-events:none;-webkit-user-drag:none}#gs{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}#grc{display:flex;gap:6px;align-items:center;margin:6px 0}#grc span{font-size:12px;color:var(--mu)}
+#grw{overscroll-behavior:contain;position:relative;width:100%;aspect-ratio:4/3;cursor:crosshair;touch-action:none;overflow:hidden;background:#000;border-radius:10px;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}#grw *{user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}#grz{position:absolute;inset:0;transform-origin:0 0;will-change:transform}#grz img{width:100%;height:100%;display:block;object-fit:fill;pointer-events:none;-webkit-user-drag:none}#gs{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}#grc{display:flex;gap:6px;align-items:center;margin:6px 0}#grc span{font-size:12px;color:var(--mu)}
 /* ustawienia */
 .set{background:var(--cd);border:1px solid var(--bd);border-radius:12px;padding:12px;margin:10px 0;display:flex;flex-direction:column;gap:10px}
 .set h3{margin:0;font-size:16px;display:flex;justify-content:space-between;align-items:center}
@@ -69,7 +69,7 @@ input[type=text]{font:inherit;padding:6px 8px;border-radius:10px;border:1px soli
 <header><h1><span>Kamera</span><span class="bt"><button class="btn" id="vw">Oś czasu</button><button class="btn" id="stb">Strefy i powiadomienia</button><button class="btn" id="clr">Wyczyść</button></span></h1><div id="fl"></div></header>
 <main id="m"></main>
 
-<div id="st" class="full"><h1 style="padding-top:8px"><span>Strefy i powiadomienia <span id="sv"></span></span><button class="btn" id="stx">Zamknij</button></h1>
+<div id="st" class="full"><h1 style="padding-top:8px"><span>Strefy i powiadomienia <span id="sv"></span> <small style="color:var(--mu);font-weight:400">v26</small></span><button class="btn" id="stx">Zamknij</button></h1>
 <p class="opis">Narysuj strefy na zdjęciu (punkty przyciągają się do innych stref i krawędzi), nazwij je i ustaw osobne powiadomienia. Wszystko poza strefami to „Poza strefami”. Zmiany zapisują się same.</p>
 <select id="gsel" style="width:100%;margin-bottom:8px"></select>
 <div id="zch" class="seg" style="margin-bottom:8px"></div>
@@ -219,7 +219,7 @@ if(ev.type=='pointerup'&&GP.size==0&&z){
  if(bi>=0){z.pts.splice(bi+1,0,q);GS=bi+1}else{z.pts.push(q);GS=z.pts.length-1}gdraw();saveCfg()}}
 if(GP.size==0){GD=-1;gmoved=false}};
 gw.addEventListener('pointerup',gup);gw.addEventListener('pointercancel',gup);
-gw.addEventListener('wheel',e=>{e.preventDefault();gzoom(GZ*(e.deltaY<0?1.2:1/1.2),e.clientX,e.clientY)},{passive:false});
+window.addEventListener('wheel',e=>{if(!e.target.closest||!e.target.closest('#grw'))return;e.preventDefault();e.stopPropagation();gzoom(GZ*(e.deltaY<0?1.2:1/1.2),e.clientX,e.clientY)},{passive:false,capture:true});
 const seg=(zid,k,f,opts,v)=>opts.map(o=>`<button class="chip${String(o[0])==String(v)?' on':''}" data-z="${zid}" data-k="${k}" data-f2="${f}" data-val="${o[0]}">${o[1]}</button>`).join('');
 const DN=['Pn','Wt','Śr','Cz','Pt','So','Nd'];
 function katHtml(zid,k,nm){const u=getU(zid,k);return `<div class="kat"><h4><span>${nm}</span><label class="sw"><input type="checkbox" data-z="${zid}" data-k="${k}" data-f2="n" ${u.n==1?'checked':''}><span></span></label></h4>

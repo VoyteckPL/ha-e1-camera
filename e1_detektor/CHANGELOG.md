@@ -21,3 +21,6 @@
 
 ## 0.3.1
 - Edytor stref: mniejsze punkty, zoom (dwa palce, kółko, przyciski) i przesuwanie, brak zaznaczania tekstu/obrazu przy klikaniu.
+
+## 0.3.2
+- Edytor: zoom kółkiem obsługiwany na poziomie okna (pewniejszy), znacznik wersji panelu.
