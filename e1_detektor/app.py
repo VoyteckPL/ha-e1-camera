@@ -693,6 +693,7 @@ def rysuj(img, items):
     except Exception:
         font = ImageFont.load_default()
     lw = max(3, iw // 380)
+    zajete = []
     for it in items:
         x1, y1, x2, y2 = it["n"][0] * iw, it["n"][1] * ih, it["n"][2] * iw, it["n"][3] * ih
         col = KOL.get(it.get("auto_id"), KOL[None])
@@ -707,6 +708,10 @@ def rysuj(img, items):
         tb = dr.textbbox((0, 0), txt, font=font)
         tw, th = tb[2] - tb[0] + 12, tb[3] - tb[1] + 10
         ty = y1 - th if y1 - th > 0 else y1
+        for (lx, ly, lw2, lh) in zajete:
+            if x1 < lx + lw2 and x1 + tw > lx and ty < ly + lh and ty + th > ly:
+                ty = ly + lh  # nie nakladaj etykiet
+        zajete.append((x1, ty, tw, th))
         dr.rectangle([x1, ty, x1 + tw, ty + th], fill=col)
         dr.text((x1 + 6, ty + 3), txt, fill="#000000", font=font)
     return img

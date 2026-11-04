@@ -100,3 +100,6 @@
 
 ## 0.8.7
 - Obrysy i nazwy aut od razu po zdarzeniu (przed klipem).
+
+## 0.8.8
+- Rozpoznawanie: Mazda bez priora koloru (ciemne auta nie sa Mazda/Kia), wyzszy prog; etykiety na zdjeciu sie nie nakladaja.
