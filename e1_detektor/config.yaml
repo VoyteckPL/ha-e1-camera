@@ -1,0 +1,28 @@
+name: E1 Kamera - detektor
+version: "0.1.0"
+slug: e1_detektor
+description: Lokalny detektor osób, samochodów i zwierząt (ONNX) do kadrowania zdjęć z kamery Reolink E1 Outdoor
+url: https://github.com/VoyteckPL/ha-e1-camera
+arch:
+  - aarch64
+  - amd64
+startup: services
+boot: auto
+init: false
+map:
+  - type: homeassistant_config
+    read_only: false
+    path: /ha_config
+  - type: media
+    read_only: false
+    path: /media
+options:
+  model: yolox_s
+  threads: 4
+  margin: 0.2
+  min_conf: 0.35
+schema:
+  model: list(yolox_s|yolox_tiny)
+  threads: int(1,4)
+  margin: float(0,1)
+  min_conf: float(0.1,0.9)
