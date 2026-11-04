@@ -260,7 +260,6 @@ async def cam_cmd(cmd, param=None, action=0, ch=0):
     body = [{"cmd": cmd, "action": action, "param": param or {"channel": ch}}]
     async with _sess.post(f"{_cam['base']}/api.cgi?cmd={cmd}&token={_cam['token']}", json=body, ssl=False, timeout=aiohttp.ClientTimeout(total=15)) as r:
         j = await r.json(content_type=None)
-    log.info("kamera %s -> %s", cmd, json.dumps(j)[:200])
     return j[0]
 
 
@@ -397,7 +396,8 @@ async def isp_api(request):
             json.dump(prev, open(DATA / "isp_prev.json", "w"))
             res = await isp_set(zm)
             return web.json_response({"ok": True, "wynik": res, "isp": await isp_get()})
-        return web.json_response({"ok": True, "isp": await isp_get()})
+        j = await cam_cmd("GetIsp", action=1)
+        return web.json_response({"ok": True, "isp": j.get("value", {}).get("Isp"), "zakres": j.get("range", {}).get("Isp")})
     except Exception as e:
         log.exception("isp")
         return web.json_response({"ok": False, "blad": str(e)})

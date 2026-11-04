@@ -1,5 +1,5 @@
 name: E1 Kamera - strojenie
-version: "0.4.1"
+version: "0.4.2"
 slug: e1_tuner
 description: Uczy sie czulosci i obrazu kamery Reolink E1 (pora dnia, pogoda, jasnosc, falszywe alarmy). Wersja 0.1 tylko zbiera dane.
 url: https://github.com/VoyteckPL/ha-e1-camera

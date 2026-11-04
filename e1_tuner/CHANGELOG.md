@@ -15,3 +15,6 @@
 
 ## 0.4.1
 - Log odpowiedzi kamery (diagnostyka).
+
+## 0.4.2
+- GET /isp zwraca tez zakresy parametrow.
