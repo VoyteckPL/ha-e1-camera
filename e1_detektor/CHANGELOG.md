@@ -76,3 +76,6 @@
 
 ## 0.7.3
 - Panel v32: przyciski nazwy auta tez na kartach i osi czasu.
+
+## 0.8.0
+- Obrysy wszystkich aut na kadrze (kolor i nazwa), osobne oznaczanie kazdego auta (pojazdy w historii), panel v33.

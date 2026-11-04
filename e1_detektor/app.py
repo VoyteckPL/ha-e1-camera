@@ -629,34 +629,135 @@ def sledz_sync(clip, b, granica=""):
         shutil.rmtree(tmpd, ignore_errors=True)
 
 
-async def sledz_pojazd(b, lok, hm, granica=""):
-    """W tle: klasyfikuje ruch pojazdu z klipu i aktualizuje wpis w historii (pole 'ruch')."""
+POJ_PLIK = Path(os.environ.get("E1_DATA", "/data")) / "pojazdy.json"
+KOL = {"kia": "#22c55e", "seat": "#3b82f6", "mazda": "#e5e7eb", "obce": "#f59e0b", None: "#ef4444"}
+
+
+def _poj_load():
+    try:
+        return json.load(open(POJ_PLIK))
+    except Exception:
+        return {}
+
+
+def _poj_save(m):
+    try:
+        keys = sorted(m, key=lambda k: m[k].get("t", 0))[-150:]
+        m = {k: m[k] for k in keys}
+        tmp = POJ_PLIK.with_suffix(".tmp")
+        json.dump(m, open(tmp, "w"))
+        os.replace(tmp, POJ_PLIK)
+    except Exception:
+        log.exception("zapis pojazdy")
+
+
+def rysuj(img, items):
+    """Obrys (prostokat) wokol kazdego wykrytego auta + nazwa."""
+    from PIL import ImageDraw, ImageFont
+    img = img.convert("RGB")
+    iw, ih = img.size
+    dr = ImageDraw.Draw(img)
+    try:
+        font = ImageFont.load_default(size=max(18, iw // 70))
+    except Exception:
+        font = ImageFont.load_default()
+    lw = max(3, iw // 380)
+    for it in items:
+        x1, y1, x2, y2 = it["n"][0] * iw, it["n"][1] * ih, it["n"][2] * iw, it["n"][3] * ih
+        col = KOL.get(it.get("auto_id"), KOL[None])
+        dr.rectangle([x1, y1, x2, y2], outline=col, width=lw)
+        txt = it.get("nazwa") or "Nieznane auto"
+        tb = dr.textbbox((0, 0), txt, font=font)
+        tw, th = tb[2] - tb[0] + 12, tb[3] - tb[1] + 10
+        ty = y1 - th if y1 - th > 0 else y1
+        dr.rectangle([x1, ty, x1 + tw, ty + th], fill=col)
+        dr.text((x1 + 6, ty + 3), txt, fill="#000000", font=font)
+    return img
+
+
+def _poj_publiczne(it):
+    return {"i": it["i"], "crop": it["crop"], "nazwa": it.get("nazwa", ""), "auto_id": it.get("auto_id")}
+
+
+def adnotuj_sync(b, src: Path):
+    """Wykrywa wszystkie auta na pelnym kadrze, rozpoznaje kazde, zapisuje wycinki i kadr z obrysami."""
+    if not src.exists():
+        return None
+    img = Image.open(src)
+    img.load()
+    iw, ih = img.size
+    items = []
+    for i, bx in enumerate(detect(img, KLASY["pojazd"], MIN_CONF)):
+        _, rect, _ = wybierz_kadr([bx], iw, ih)
+        crop = f"e1_crop_{b}_c{i}.jpg"
+        zapisz_kadr(img, rect, SNAP / crop)
+        ra = auta.rozpoznaj(SNAP / crop)
+        items.append({"i": i, "crop": crop, "n": _norm(bx, iw, ih), "auto_id": ra["id"] if ra else None,
+                      "nazwa": auta.etykieta_pelna(ra) if ra else ""})
+    if not items:
+        return None
+    m = _poj_load()
+    m[b] = {"src": src.name, "v": 0, "t": time.time(), "items": items}
+    _poj_save(m)
+    out = f"e1_best_{b}_a0.jpg"
+    rysuj(img, items).save(SNAP / out, "JPEG", quality=90)
+    return {"plik": out, "pojazdy": [_poj_publiczne(x) for x in items], "auto": ", ".join(x["nazwa"] for x in items if x["nazwa"])}
+
+
+def przemaluj_sync(b, i, auto_id, nazwa):
+    """Po recznej etykiecie: aktualizuje nazwe auta nr i i rysuje kadr od nowa (nowa nazwa pliku - omija cache)."""
+    m = _poj_load()
+    e = m.get(b)
+    if not e:
+        return None
+    for it in e["items"]:
+        if it["i"] == i:
+            it["auto_id"], it["nazwa"] = auto_id, nazwa
+    e["v"] += 1
+    _poj_save(m)
+    img = Image.open(SNAP / e["src"])
+    img.load()
+    out = f"e1_best_{b}_a{e['v']}.jpg"
+    rysuj(img, e["items"]).save(SNAP / out, "JPEG", quality=90)
+    return {"plik": out, "pojazdy": [_poj_publiczne(x) for x in e["items"]], "auto": ", ".join(x["nazwa"] for x in e["items"] if x["nazwa"])}
+
+
+def _poj_event(b, w, lok, hm, ruch=None):
+    d = {"b": b, "crop": "", "plik": w["plik"], "osoby": [], "n": 1, "rodzaj": "Pojazd", "lok": lok, "hm": hm,
+         "auto": w["auto"], "pojazdy": w["pojazdy"], "pow": 0, "glosno": 0}
+    if ruch:
+        d["ruch"] = ruch
+    return d
+
+
+async def sledz_pojazd(b, lok, hm, granica="", pelny=""):
+    """W tle: ruch pojazdu z klipu (wjazd/wyjazd/przejazd), rozpoznanie aut i kadr z obrysami; aktualizuje wpis w historii."""
     try:
         clip = await klip_do_analizy(b)
-        if not clip:
-            return
         loop = asyncio.get_running_loop()
+        w = None
+        if clip:
+            async with GLOCK:
+                w = await loop.run_in_executor(None, sledz_sync, clip, b, granica)
+        if w:
+            src = SNAP / w["plik"]
+            ruch = RUCH_ETYKIETA[w["kier"]]
+        else:
+            await loop.run_in_executor(None, nieruchome_sync, b)
+            src = SNAP / pelny if pelny else SNAP / f"e1_crop_{b}.jpg"
+            ruch = None
         async with GLOCK:
-            w = await loop.run_in_executor(None, sledz_sync, clip, b, granica)
-        if not w:
-            ra = await loop.run_in_executor(None, nieruchome_sync, b)
-            log.info("sledzenie %s: nic sie nie rusza (stoi), auto=%s", b, ra)
-            if ra:
-                async with reolink.HA() as ha:
-                    await ha.cmd({"type": "fire_event", "event_type": "kamera_zdarzenie_popr", "event_data": {
-                        "b": b, "crop": "", "plik": "", "osoby": [], "n": 1, "rodzaj": "Pojazd", "lok": lok, "hm": hm,
-                        "auto": auta.etykieta_pelna(ra), "pow": 0, "glosno": 0}})
+            ad = await loop.run_in_executor(None, adnotuj_sync, b, src)
+        log.info("sledzenie %s: ruch=%s, aut na kadrze=%s", b, ruch, len(ad["pojazdy"]) if ad else 0)
+        if not ad and not w:
             return
-        log.info("sledzenie %s: %s auto=%s (zaparkowanych: %s)", b, w["kier"], w.get("auto"), w["zaparkowane"])
+        ev = _poj_event(b, ad, lok, hm, ruch) if ad else {
+            "b": b, "crop": "", "plik": w["plik"], "osoby": [], "n": 1, "rodzaj": "Pojazd", "lok": lok, "hm": hm,
+            "ruch": ruch, "auto": auta.etykieta_pelna(w.get("auto")), "pow": 0, "glosno": 0}
+        if w:
+            ev["crop"] = w["crop"]
         async with reolink.HA() as ha:
-            await ha.cmd({
-                "type": "fire_event",
-                "event_type": "kamera_zdarzenie_popr",
-                "event_data": {
-                    "b": b, "crop": w["crop"], "plik": w["plik"], "osoby": [], "n": 1, "rodzaj": "Pojazd", "lok": lok, "hm": hm,
-                    "ruch": RUCH_ETYKIETA[w["kier"]], "auto": auta.etykieta_pelna(w.get("auto")), "pow": 0, "glosno": 0,
-                },
-            })
+            await ha.cmd({"type": "fire_event", "event_type": "kamera_zdarzenie_popr", "event_data": ev})
     except Exception:
         log.exception("sledz_pojazd")
 
@@ -699,10 +800,16 @@ async def analyze(request):
                 if a is None:
                     return web.json_response({"ok": False, "blad": "nieznane auto"})
                 nm = auta.etykieta_pelna(a) if av != auta.OBCE else "Obce auto"
+                idx = dane.get("i")
+                ev = {"b": bb, "crop": "", "plik": "", "osoby": [], "n": 1, "rodzaj": "Pojazd", "lok": "", "hm": "",
+                      "auto": nm, "pow": 0, "glosno": 0}
+                if idx is not None:
+                    w2 = await asyncio.get_running_loop().run_in_executor(
+                        None, przemaluj_sync, bb, int(idx), None if av == auta.OBCE else av, "" if av == auta.OBCE else nm)
+                    if w2:
+                        ev.update(plik=w2["plik"], pojazdy=w2["pojazdy"], auto=w2["auto"])
                 async with reolink.HA() as ha:
-                    await ha.cmd({"type": "fire_event", "event_type": "kamera_zdarzenie_popr", "event_data": {
-                        "b": bb, "crop": "", "plik": "", "osoby": [], "n": 1, "rodzaj": "Pojazd", "lok": "", "hm": "",
-                        "auto": nm, "pow": 0, "glosno": 0}})
+                    await ha.cmd({"type": "fire_event", "event_type": "kamera_zdarzenie_popr", "event_data": ev})
                 return web.json_response({"ok": True, "auto": nm, "auta": auta.lista()})
             return web.json_response(strefy.api(json.loads(str(d.get("plik", "{}")) or "{}")))
         except Exception as e:
@@ -781,7 +888,7 @@ async def analyze(request):
     if rodzaj == "pojazd" and res["found"]:
         tz = strefy._tz()
         hm2 = (datetime.now(tz) if tz else datetime.now()).strftime("%H:%M")
-        asyncio.create_task(sledz_pojazd(b, res["strefa"], hm2, granica))
+        asyncio.create_task(sledz_pojazd(b, res["strefa"], hm2, granica, res.get("pelny", "")))
     asyncio.create_task(przygotuj_wideo(b))
     asyncio.create_task(reolink.reolink_wideo(b, rodzaj, SNAP / f"e1_v_{b}.mp4", MEDIA, przygotuj_wideo_sync))
     log.info("analiza %s %s -> %s", b, rodzaj, {k: res.get(k) for k in ("found", "conf", "strefa", "powiadom", "historia", "zrodlo", "czas")})

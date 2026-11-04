@@ -21,6 +21,7 @@ h2{font-size:13px;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;
 .tags{display:flex;flex-wrap:wrap;gap:5px}
 .tag{font-size:12px;border-radius:10px;padding:2px 8px;background:var(--bd);color:var(--tx)}
 .tag.p{background:#10b981;color:#000}
+.cars{display:flex;flex-direction:column;gap:6px;margin:4px 0}.car{display:flex;gap:8px;align-items:center}.car img{height:44px;width:64px;object-fit:cover;border-radius:8px;background:#000;flex:none}.car .cn{font-size:12px;color:var(--mu)}
 .btn.sm{padding:3px 9px;font-size:12px}.row.lab{margin-bottom:4px}
 .tag.a{background:#3b82f6;color:#fff}
 #pk{display:none;gap:8px;padding:6px 12px;overflow-x:auto;align-items:center}#pk.on{display:flex}
@@ -80,7 +81,7 @@ input[type=text]{font:inherit;padding:6px 8px;border-radius:10px;border:1px soli
 <div id="pk"></div>
 <main id="m"></main>
 
-<div id="st" class="full"><h1 style="padding-top:8px"><span>Strefy i powiadomienia <span id="sv"></span> <small style="color:var(--mu);font-weight:400">v32</small></span><button class="btn" id="stx">Zamknij</button></h1>
+<div id="st" class="full"><h1 style="padding-top:8px"><span>Strefy i powiadomienia <span id="sv"></span> <small style="color:var(--mu);font-weight:400">v33</small></span><button class="btn" id="stx">Zamknij</button></h1>
 <p class="opis">Narysuj strefy na zdjęciu (punkty przyciągają się do innych stref i krawędzi), nazwij je i ustaw osobne powiadomienia. Wszystko poza strefami to „Poza strefami”. Zmiany zapisują się same.</p>
 <select id="gsel" style="width:100%;margin-bottom:8px"></select>
 <div id="zch" class="seg" style="margin-bottom:8px"></div>
@@ -113,7 +114,7 @@ function fire(d){const h=H();if(h)h.connection.sendMessagePromise({type:'fire_ev
 function sure(b,fn){if(b.classList.contains('sure')){fn();return}const t=b.textContent;b.classList.add('sure');b.textContent='Na pewno?';setTimeout(()=>{b.classList.remove('sure');b.textContent=t},3000)}
 function day(c){const d=c.slice(0,10);const l=n=>{const x=new Date();x.setDate(x.getDate()-n);return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')};return d==l(0)?'Dziś':d==l(1)?'Wczoraj':d.split('-').reverse().join('.')}
 function gapTxt(a,b){const m=Math.round((new Date(a.replace(' ','T'))-new Date(b.replace(' ','T')))/60000);if(!(m>=1))return '';const h=Math.floor(m/60),r=m%60;return 'przerwa '+(h?h+' h ':'')+(r||!h?r+' min':'')}
-const img=e=>SN+(e.crop||e.plik);
+const img=e=>SN+(((e.pojazdy||[]).length||!e.crop)?e.plik:e.crop);
 
 /* ---------- konfiguracja stref (w add-onie) ---------- */
 let CFG={strefy:[],ust:{},poza:{nazwa:'Poza strefami',kolor:'#6b7280'}},CFGOK=false;
@@ -141,7 +142,7 @@ let out='',g='',prev=null;
 for(const e of list){const d=day(e.czas);if(d!=g){if(g)out+='</div>';out+=`<h2>${d}</h2><div class="${TV?'tl':'grid'}">`;g=d;prev=null}
 const tg=(e.auto?`<span class="tag a">${esc(e.auto)}</span>`:'')+(e.ruch?`<span class="tag p">${esc(e.ruch)}</span>`:'')+`<span class="tag"><span class="dotc" style="background:${zcol(e.lok)}"></span>${esc(e.lok||'')}</span>${+e.conf>0?`<span class="tag">${Math.round(e.conf*100)}%</span>`:''}${+e.pow?'<span class="tag p">powiadomiono</span>':''}`;
 const im=`<img loading="lazy" src="${esc(img(e))}" data-e="${esc(e.b)}" onerror="this.onerror=null;this.src='${SN}${esc(e.plik)}'">`;
-const lab=(e.rodzaj=='Pojazd'&&AUTA.length)?`<div class="row lab">${AUTA.map(a=>{const n=a.nazwa+(a.opis?' ('+a.opis+')':'');return `<button class="btn sm${e.auto==n?' pri':''}" data-lab="${esc(e.b)}|${esc(a.id)}">${esc(a.nazwa.split(' ')[0])}</button>`}).join('')}<button class="btn sm${e.auto=='Obce auto'?' pri':''}" data-lab="${esc(e.b)}|obce">Obce</button></div>`:'';
+const lab=e.rodzaj=='Pojazd'?carsHtml(e):'';
 const rw=lab+`<div class="row"><button class="btn" data-v="${esc(e.b)}">▶ Wideo</button><button class="btn" data-p="${esc(e.b)}">Usuń</button></div>`;
 if(TV){const gp=prev?gapTxt(prev,e.czas):'';if(gp)out+=`<div class="gap">${gp}</div>`;prev=e.czas;
 out+=`<div class="ti"><span class="tm">${esc(e.czas.slice(11,16))}</span><span class="dot"></span><div class="tc">${im}<div class="body"><div class="top"><span>${NAZ[e.rodzaj]||esc(e.rodzaj)}</span></div><div class="tags">${tg}</div>${rw}</div></div></div>`}
@@ -167,12 +168,14 @@ function pkRender(){const h=H();const s=h&&h.states['sensor.kamera_zaparkowane']
 const sig=s.last_updated;if(sig==pkSig)return;pkSig=sig;const l=s.attributes.auta||[];
 el.className='on';el.innerHTML='<span class="pt">🚗 Zaparkowane: <b>'+esc(s.state)+'</b></span>'+l.map(a=>`<span class="pc">${a.crop?`<img src="${SN}${esc(a.crop)}">`:''}${esc(a.nazwa)} <small style="color:var(--mu)">od ${esc(a.od)}</small></span>`).join('')}
 async function loadAuta(){try{const c=await api({cmd:'auta'});AUTA=c.auta||[];last=''}catch(e){}}
-async function doLabel(b,id){const x=ALL.find(z=>z.b==b);if(!x)return;try{const c=await api({cmd:'etykieta',b:b,crop:x.crop||x.plik,auto:id});x.auto=c.auto;AUTA=c.auta||AUTA}catch(err){}last='';render();if(EV&&EV.b==b){EV.auto=x.auto;auRender()}}
+async function doLabel(b,id,i){const x=ALL.find(z=>z.b==b);if(!x)return;const pj=(x.pojazdy||[]).find(p=>String(p.i)==String(i));try{const o={cmd:'etykieta',b:b,crop:pj?pj.crop:(x.crop||x.plik),auto:id};if(pj)o.i=pj.i;const c=await api(o);x.auto=c.auto;AUTA=c.auta||AUTA;if(pj){pj.nazwa=id=='obce'?'':c.auto}}catch(err){}last='';render();if(EV&&EV.b==b){EV.auto=x.auto;auRender()}setTimeout(()=>{last='';render();if(EV&&EV.b==b){const y=ALL.find(z=>z.b==b);if(y){EV=y;delete zi.dataset.u;showPhoto();auRender()}}},2500)}
+function chips(e,i,p){const cur=(p?p.nazwa:e.auto)||'';return AUTA.map(a=>{const n=a.nazwa+(a.opis?' ('+a.opis+')':'');return `<button class="btn sm${cur==n?' pri':''}" data-lab="${esc(e.b)}|${esc(a.id)}|${i}">${esc(a.nazwa.split(' ')[0])}</button>`}).join('')+`<button class="btn sm${(p&&!p.nazwa&&p.auto_id===undefined)?'':''}" data-lab="${esc(e.b)}|obce|${i}">Obce</button>`}
+function carsHtml(e){if(!AUTA.length)return '';const l=e.pojazdy||[];
+if(l.length)return '<div class="cars">'+l.map(p=>`<div class="car"><img src="${SN}${esc(p.crop)}"><div><div class="cn">${esc(p.nazwa||'Nieznane auto')}</div><div class="row lab">${chips(e,p.i,p)}</div></div></div>`).join('')+'</div>';
+return `<div class="row lab">${chips(e,'',null)}</div>`}
 function auRender(){const el=$('au');if(!EV||EV.rodzaj!='Pojazd'||!AUTA.length){el.className='';return}
-const cur=EV.auto||'';el.className='on';
-el.innerHTML='<small>To auto:</small>'+AUTA.map(a=>{const n=a.nazwa+(a.opis?' ('+a.opis+')':'');return `<button class="btn${cur==n?' pri':''}" data-au="${esc(a.id)}">${esc(a.nazwa)}</button>`}).join('')+`<button class="btn${cur=='Obce auto'?' pri':''}" data-au="obce">Obce</button>`}
-$('au').addEventListener('click',async e=>{const b=e.target.closest('[data-au]');if(!b||!EV)return;const id=b.dataset.au;b.textContent='…';
-try{const c=await api({cmd:'etykieta',b:EV.b,crop:EV.crop||EV.plik,auto:id});EV.auto=c.auto;AUTA=c.auta||AUTA;const x=ALL.find(z=>z.b==EV.b);if(x)x.auto=c.auto;last=''}catch(err){}auRender()});
+el.className='on';el.innerHTML=carsHtml(EV)}
+$('au').addEventListener('click',e=>{const b=e.target.closest('[data-lab]');if(!b)return;const q=b.dataset.lab.split('|');b.textContent='…';doLabel(q[0],q[1],q[2])});
 
 /* ---------- arkusz zdarzenia ---------- */
 let EV=null,poll=null,PM='crop';
@@ -192,7 +195,7 @@ EV=e||{b:b,rodzaj:'',czas:'',plik:b+'.jpg'};
 $('sht').textContent=e?(NAZ[e.rodzaj]||e.rodzaj):'Zdarzenie';
 $('shs').textContent=e?(e.czas.slice(0,16)+' · '+(e.lok||'')+(+e.conf>0?' · '+Math.round(e.conf*100)+'%':'')):'Analiza w toku…';
 zv.pause();zv.removeAttribute('src');delete zv.dataset.src;
-PM='crop';delete zi.dataset.u;$('bfu').hidden=!(e&&e.crop&&e.plik&&e.crop!=e.plik);
+PM=(e&&(e.pojazdy||[]).length)?'full':'crop';delete zi.dataset.u;$('bfu').hidden=!(e&&e.crop&&e.plik&&e.crop!=e.plik);
 $('sh').className='on';showPhoto();auRender()}
 async function saveCur(){if(!EV)return;const vid=zv.style.display!='none';
 if(vid&&!zv.dataset.src){msg('Wideo jeszcze się przygotowuje…');setTimeout(()=>{if(zv.dataset.src)msg('')},1500);return}
