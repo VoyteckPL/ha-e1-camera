@@ -109,3 +109,6 @@
 
 ## 0.9.0
 - Panel v35: przyciski aut w jednym rzedzie pod miniatura (bez lamania tekstu).
+
+## 0.9.1
+- Panel v36: oznaczanie aut chowane (przycisk Oznacz auta / Ukryj).
