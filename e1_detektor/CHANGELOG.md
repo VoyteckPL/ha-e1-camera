@@ -118,3 +118,6 @@
 
 ## 0.9.3
 - Obrysy dokladniejsze (do ~26 punktow, GrabCut 480 px), cienkie linie, mala polprzezroczysta nazwa.
+
+## 0.9.4
+- Opisy na zdjeciu: KIA / MAZDA / SEAT w srodku auta, male, polprzezroczyste.

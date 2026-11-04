@@ -630,7 +630,7 @@ def sledz_sync(clip, b, granica=""):
 
 
 POJ_PLIK = Path(os.environ.get("E1_DATA", "/data")) / "pojazdy.json"
-KOL = {"kia": "#22c55e", "seat": "#3b82f6", "mazda": "#e5e7eb", "obce": "#f59e0b", None: "#ef4444"}
+KOL = {"kia": "#22c55e", "seat": "#3b82f6", "mazda": "#9ca3af", "obce": "#f59e0b", None: "#ef4444"}
 
 
 def _poj_load():
@@ -696,7 +696,7 @@ def rysuj(img, items):
     ov = Image.new("RGBA", base.size, (0, 0, 0, 0))
     dr = ImageDraw.Draw(ov)
     try:
-        font = ImageFont.load_default(size=max(12, iw // 115))
+        font = ImageFont.load_default(size=max(12, iw // 90))
     except Exception:
         font = ImageFont.load_default()
     lw = max(2, iw // 650)
@@ -712,15 +712,20 @@ def rysuj(img, items):
             x1, y1 = min(p[0] for p in pts), min(p[1] for p in pts)
         else:
             dr.rectangle([x1, y1, x2, y2], outline=rgb + (235,), width=lw)
-        txt = it.get("nazwa") or "Nieznane auto"
+        txt = {"kia": "KIA", "seat": "SEAT", "mazda": "MAZDA", "obce": "OBCE"}.get(it.get("auto_id"), "?")
         tb = dr.textbbox((0, 0), txt, font=font)
         tw, th = tb[2] - tb[0] + 8, tb[3] - tb[1] + 6
-        ty = y1 - th if y1 - th > 0 else y1
+        if poly and len(poly) >= 3:
+            cx = sum(p[0] for p in pts) / len(pts)
+            cy = sum(p[1] for p in pts) / len(pts)
+        else:
+            cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
+        x1, ty = cx - tw / 2, cy - th / 2  # opis w srodku auta
         for (lx, ly, lw2, lh) in zajete:
             if x1 < lx + lw2 and x1 + tw > lx and ty < ly + lh and ty + th > ly:
                 ty = ly + lh  # nie nakladaj etykiet
         zajete.append((x1, ty, tw, th))
-        dr.rectangle([x1, ty, x1 + tw, ty + th], fill=rgb + (95,))
+        dr.rectangle([x1, ty, x1 + tw, ty + th], fill=rgb + (120,))
         dr.text((x1 + 4, ty + 2), txt, fill=(255, 255, 255, 235), font=font)
     return Image.alpha_composite(base, ov).convert("RGB")
 
