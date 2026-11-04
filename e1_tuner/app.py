@@ -157,6 +157,7 @@ async def petla_probek():
             _last_ctx = c
             zapisz(F_PROBKI, c)
             _stat["probki"] += 1
+            await pchnij()
         except Exception as e:
             _stat["blad"] = str(e)
             log.exception("probka")
@@ -194,6 +195,7 @@ async def petla_zdarzen():
                         zapisz(F_ZDARZ, {"b": e["b"], "czas": e.get("czas"), "rodzaj": e.get("rodzaj"), "lok": e.get("lok"), "conf": e.get("conf"),
                                          "pow": e.get("pow"), "auto": e.get("auto"), "ctx": c})
                         _stat["zdarzenia"] += 1
+                    await pchnij()
         except Exception as e:
             _stat["blad"] = str(e)
             log.exception("zdarzenia")
@@ -221,9 +223,48 @@ async def petla_etykiet():
                                     "lok": e.get("lok"), "conf": e.get("conf"), "czas": e.get("czas")})
                     _stat["etykiety"] += 1
                     log.info("etykieta: %s falszywy=%s", e.get("b"), e.get("falszywy"))
+                    await pchnij()
         except Exception as e:
             log.warning("ws: %s", e)
         await asyncio.sleep(10)
+
+
+SENSOR = "sensor.kamera_strojenie"
+
+
+def podsumowanie():
+    """Dane dla panelu: ostatnie 7 dni zdarzen (z liczba oznaczonych jako falszywe) + seria metryk obrazu."""
+    od = time.time() - 7 * 86400
+    etyk = {}
+    for e in _wczytaj(F_ETYK, 5000):
+        etyk[e["b"]] = e.get("falszywy", 0)
+    zd = {}
+    for e in _wczytaj(F_ZDARZ, 5000):
+        try:
+            if datetime.strptime(e["czas"], "%Y-%m-%d %H:%M:%S").timestamp() < od:
+                continue
+        except Exception:
+            continue
+        r = zd.setdefault(e.get("rodzaj") or "?", {"n": 0, "fal": 0})
+        r["n"] += 1
+        r["fal"] += 1 if etyk.get(e["b"]) else 0
+    seria = []
+    for p in _wczytaj(F_PROBKI, 72):
+        o = p.get("obraz") or {}
+        seria.append({"t": p["t"], "jasn": o.get("jasn"), "lux": p.get("lux"), "szum": o.get("szum"), "ostr": o.get("ostrosc"),
+                      "prz": o.get("przepal"), "czern": o.get("czern"), "dz": p.get("deszcz")})
+    return {"tryb": OPTS.get("tryb", "zbieranie"), "ctx": _last_ctx, "stat": _stat, "zd7": zd, "etykiet": len(etyk), "seria": seria}
+
+
+async def pchnij():
+    try:
+        p = podsumowanie()
+        async with _sess.post(f"{API}/states/{SENSOR}", headers=H(), timeout=aiohttp.ClientTimeout(total=15),
+                              json={"state": _stat["probki"], "attributes": dict(p, friendly_name="Kamera strojenie", icon="mdi:tune-variant")}) as r:
+            if r.status >= 300:
+                log.warning("sensor %s", r.status)
+    except Exception as e:
+        log.warning("pchnij: %s", e)
 
 
 def _wczytaj(plik, n):

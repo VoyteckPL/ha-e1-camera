@@ -32,6 +32,8 @@ h2{font-size:13px;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;
 #au{display:none;gap:6px;padding:8px 12px 0;flex-wrap:wrap;align-items:center}#au.on{display:flex}#au small{color:var(--mu);font-size:12px;width:100%}
 .btn{border:1px solid var(--bd);background:var(--cd);color:var(--tx);border-radius:8px;padding:4px 10px;cursor:pointer;font:inherit;font-size:13px}
 .btn.pri{background:var(--ac);border-color:var(--ac);color:#fff}
+.tg2{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin:8px 0}.tg2>div{background:var(--cd);border:1px solid var(--bd);border-radius:10px;padding:8px 10px}.tg2 b{display:block;font-size:18px}.tg2 small{color:var(--mu)}
+.tt{width:100%;border-collapse:collapse;font-size:14px;margin:6px 0}.tt td,.tt th{padding:5px 6px;border-bottom:1px solid var(--bd);text-align:left}.spk{width:100%;height:70px;background:var(--cd);border:1px solid var(--bd);border-radius:10px}
 .btn.on{background:#f59e0b;border-color:#f59e0b;color:#000}
 .btn.sure{background:var(--rd);border-color:var(--rd);color:#fff}
 .row{display:flex;gap:6px;margin-top:auto;align-items:center;justify-content:flex-end}
@@ -79,7 +81,7 @@ input[type=text]{font:inherit;padding:6px 8px;border-radius:10px;border:1px soli
 #vm{position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:#fff;background:#000c;text-align:center;padding:20px;pointer-events:none;z-index:2}
 #sb{display:flex;gap:8px;padding:10px 12px calc(12px + env(safe-area-inset-bottom))}#sb .btn{flex:1;padding:10px 8px;font-size:15px}#sb .btn[hidden]{display:none}
 </style></head><body>
-<header><h1><span>Kamera</span><span class="bt"><button class="btn" id="vw">Oś czasu</button><button class="btn" id="stb">Strefy i powiadomienia</button><button class="btn" id="clr">Wyczyść</button></span></h1><div id="fl"></div></header>
+<header><h1><span>Kamera</span><span class="bt"><button class="btn" id="vw">Oś czasu</button><button class="btn" id="stb">Strefy i powiadomienia</button><button class="btn" id="tub">Strojenie</button><button class="btn" id="clr">Wyczyść</button></span></h1><div id="fl"></div></header>
 <div id="pk"></div>
 <main id="m"></main>
 
@@ -90,6 +92,8 @@ input[type=text]{font:inherit;padding:6px 8px;border-radius:10px;border:1px soli
 <div id="grc"><button class="btn" id="gzm">＋</button><button class="btn" id="gzl">－</button><button class="btn" id="gzr">Reset</button><span>Zoom: dwa palce lub kółko myszy; przesuwaj przeciągając tło, dotknięcie dodaje punkt</span></div><div id="grw"><div id="grz"><img id="gi" draggable="false"><svg id="gs" viewBox="0 0 1000 750" preserveAspectRatio="none"></svg></div></div>
 <div class="bt" style="margin:8px 0"><button class="btn" id="grdel">Usuń punkt</button><button class="btn" id="grundo">Cofnij</button><button class="btn" id="grclr">Wyczyść obszar</button><button class="btn pri" id="znew">+ Nowa strefa</button></div>
 <div id="zl"></div></div>
+
+<div id="tu" class="full"><h1 style="padding-top:8px"><span>Strojenie kamery</span><button class="btn" id="tux">Zamknij</button></h1><div id="tuc"></div></div>
 
 <div id="sh"><div id="sp">
 <div id="sph"><div><b id="sht"></b><small id="shs"></small></div><span class="bt"><button class="btn ic" id="bsv" title="Zapisz"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v3h16v-3"/></svg></button><button class="btn ic" id="shx" title="Zamknij">✕</button></span></div>
@@ -295,6 +299,21 @@ $('gi').src=sel.value?SN+sel.value:(lp?SN+lp:'');
 if(!ACT||!act())ACT=(CFG.strefy[0]||{}).id||null;GS=-1;$('st').className='full on';loadCfg().then(()=>{if(!ACT||!act())ACT=(CFG.strefy[0]||{}).id||null;zchips();zlist();gdraw()});zchips();zlist();gdraw()}
 $('gsel').addEventListener('change',ev=>{$('gi').src=SN+ev.target.value;try{localStorage.setItem('grimg',ev.target.value)}catch(_){}});
 
+
+function spark(a,key,col,max){const v=a.map(x=>x[key]);const ok=v.filter(x=>x!=null);if(ok.length<2)return'';const mx=max||Math.max(...ok,1),W=300,Hh=60;const pts=v.map((x,i)=>x==null?null:[i*W/(v.length-1),Hh-4-(x/mx)*(Hh-8)]).filter(Boolean);return`<polyline fill="none" stroke="${col}" stroke-width="2" points="${pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')}"/>`}
+function tuRender(){const h=H();const s=h&&h.states['sensor.kamera_strojenie'];const el=$('tuc');
+if(!s){el.innerHTML='<p class="opis">Brak danych. Add-on „E1 Kamera - strojenie” musi być uruchomiony (pierwsza próbka po ok. 15 s od startu).</p>';return}
+const a=s.attributes,c=a.ctx||{},o=c.obraz||{};const v=(x,u)=>x==null?'–':x+(u||'');
+const tr={zbieranie:'zbieranie danych (bez zmian w kamerze)',proponuj:'proponuje zmiany',stosuj:'stosuje zmiany samodzielnie'}[a.tryb]||a.tryb;
+let zd='';for(const k of Object.keys(a.zd7||{})){const r=a.zd7[k];zd+=`<tr><td>${esc(k)}</td><td>${r.n}</td><td>${r.fal}</td><td>${r.n?Math.round(100*r.fal/r.n):0}%</td></tr>`}
+const se=a.seria||[];
+el.innerHTML=`<p class="opis">Tryb: <b>${esc(tr)}</b>. Uczenie startuje po kilku dniach danych; teraz tylko zbieram kontekst, obraz i Twoje oznaczenia „Fałszywy”.</p>
+<div class="tg2"><div><small>Próbek</small><b>${a.stat?a.stat.probki:0}</b></div><div><small>Zdarzeń (od startu)</small><b>${a.stat?a.stat.zdarzenia:0}</b></div><div><small>Oznaczeń fałszywych</small><b>${a.etykiet||0}</b></div></div>
+<h2>Teraz</h2><div class="tg2"><div><small>Jasność zewn.</small><b>${v(c.lux,' lx')}</b></div><div><small>Pogoda</small><b>${esc(v(c.pogoda))}</b><small>${v(c.temp,'°C')}, wiatr ${v(c.wiatr)}</small></div><div><small>Deszcz</small><b>${c.deszcz?'pada':'nie'}</b><small>od ${c.deszcz_zmiana_s!=null?Math.round(c.deszcz_zmiana_s/60)+' min':'–'}</small></div><div><small>Światło podjazdu</small><b>${c.sw_podjazd?'włączone':'wyłączone'}</b></div><div><small>Słońce</small><b>${v(c.slonce_elew,'°')}</b></div></div>
+<h2>Czułości kamery</h2><div class="tg2"><div><small>Osoby</small><b>${v(c.czul_osoby)}</b></div><div><small>Pojazdy</small><b>${v(c.czul_pojazdy)}</b></div><div><small>Zwierzęta</small><b>${v(c.czul_zwierzeta)}</b></div><div><small>Ruch</small><b>${v(c.czul_ruch)}</b></div></div>
+<h2>Jakość obrazu</h2><div class="tg2"><div><small>Jasność</small><b>${v(o.jasn)}</b></div><div><small>Ostrość</small><b>${v(o.ostrosc)}</b></div><div><small>Szum</small><b>${v(o.szum)}</b></div><div><small>Przepalenia</small><b>${o.przepal!=null?(o.przepal*100).toFixed(1)+'%':'–'}</b></div><div><small>Czerń</small><b>${o.czern!=null?(o.czern*100).toFixed(0)+'%':'–'}</b></div></div>
+<svg class="spk" viewBox="0 0 300 60" preserveAspectRatio="none">${spark(se,'jasn','#2563eb',255)}${spark(se,'szum','#f59e0b',30)}</svg><p class="opis">Ostatnie ~12 godzin: niebieska – jasność obrazu, pomarańczowa – szum.</p>
+<h2>Zdarzenia (7 dni)</h2>${zd?`<table class="tt"><tr><th>Rodzaj</th><th>Razem</th><th>Fałszywe</th><th>%</th></tr>${zd}</table>`:'<p class="opis">Jeszcze brak zdarzeń od startu add-onu.</p>'}`}
 /* ---------- klikniecia ---------- */
 document.addEventListener('click',ev=>{const t=ev.target.closest('button,img')||ev.target,d=t.dataset||{};
 if(d.f){cur=d.f;try{localStorage.setItem('kf',cur)}catch(_){}last='';render()}
@@ -314,6 +333,8 @@ else if(t.id=='bsv'){saveCur()}
 else if(t.id=='vmu'){MU=!zv.muted;setMu(MU,true)}
 else if(t.id=='bvd'){showVideo()}
 else if(t.id=='stb'){openSt()}
+else if(t.id=='tub'){$('tu').className='full on';tuRender()}
+else if(t.id=='tux'){$('tu').className='full'}
 else if(t.id=='stx'){$('st').className='full';last=''}
 else if(d.act){ACT=d.act;GS=-1;zchips();gdraw();gw.scrollIntoView({block:'nearest'})}
 else if(t.id=='znew'){if(CFG.strefy.length>=8)return;const id='z'+Date.now().toString(36).slice(-5);const used=CFG.strefy.map(z=>z.kolor);CFG.strefy.push({id:id,nazwa:'Strefa '+(CFG.strefy.length+1),kolor:KOL.find(c=>!used.includes(c))||KOL[0],prio:1,pts:[]});ACT=id;GS=-1;zchips();zlist();gdraw();gw.scrollIntoView({block:'nearest'})}
@@ -335,5 +356,5 @@ if(t.type=='checkbox')setU(d.z,d.k,{n:t.checked?1:0});else if(t.type=='time'&&t.
 document.addEventListener('keydown',e=>{if(e.key=='Escape')closeEv()});
 
 function ping(){if(document.visibilityState!='visible')return;const h=H();if(h)h.callService('input_text','set_value',{entity_id:'input_text.kamera_panel_ping',value:String(Math.floor(Date.now()/1000))})}
-render();loadCfg();loadAuta();chkUrl();setInterval(()=>{render();pkRender();chkUrl()},1500);setInterval(()=>{if(!AUTA.length)loadAuta()},8000);ping();setInterval(ping,10000);document.addEventListener('visibilitychange',ping);
+render();loadCfg();loadAuta();chkUrl();setInterval(()=>{render();pkRender();chkUrl();if($('tu').classList.contains('on'))tuRender()},1500);setInterval(()=>{if(!AUTA.length)loadAuta()},8000);ping();setInterval(ping,10000);document.addEventListener('visibilitychange',ping);
 </script></body></html>

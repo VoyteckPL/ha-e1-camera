@@ -152,3 +152,6 @@
 
 ## 0.12.0
 - Panel: przycisk "Fałszywy" przy zdarzeniu (wysyła event kamera_etykieta do add-onu strojenia).
+
+## 0.12.1
+- Panel: widok "Strojenie" (kontekst, czułości, jakość obrazu, zdarzenia 7 dni).
