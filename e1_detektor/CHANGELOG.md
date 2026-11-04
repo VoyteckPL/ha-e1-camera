@@ -133,3 +133,6 @@
 
 ## 0.9.8
 - Log wyników rozpoznawania dla nierozpoznanych aut.
+
+## 0.9.9
+- Przy bardzo wysokim dopasowaniu (>=0.85) wystarczy mały margines nad drugim autem.
