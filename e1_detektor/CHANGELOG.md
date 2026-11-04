@@ -165,3 +165,6 @@
 
 ## 0.13.1
 - Panel: przełącznik Auto-presety w zakładce Na żywo.
+
+## 0.13.2
+- Preset Noc: jasność 165, kontrast 125, nasycenie 120 (sprawdzone na obrazie z kamery, kolor zachowany).

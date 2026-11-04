@@ -237,7 +237,7 @@ E_OS, E_PO, E_ZW, E_RU = (N + "czulosc_wykrywania_osob_przez_ai", N + "czulosc_w
 E_JA, E_KO, E_NA, E_OT = N + "jasnosc_obrazu", N + "kontrast_obrazu", N + "nasycenie_obrazu", N + "ostrosc_obrazu"
 # te same wartosci co presety w panelu (kamera_panel.html)
 P_DZIEN = {E_OS: 50, E_PO: 50, E_ZW: 50, E_RU: 35, E_JA: 128, E_KO: 128, E_NA: 128, E_OT: 128}
-P_NOC = {E_OS: 70, E_PO: 75, E_ZW: 65, E_RU: 40, E_JA: 128, E_KO: 140, E_NA: 100, E_OT: 120}
+P_NOC = {E_OS: 70, E_PO: 75, E_ZW: 65, E_RU: 40, E_JA: 165, E_KO: 125, E_NA: 120, E_OT: 120}
 P_DESZCZ = {E_OS: 65, E_PO: 65, E_ZW: 55, E_RU: 25}
 LUX_NOC, LUX_DZIEN = 15, 30  # histereza: noc <15 lx, dzien >30 lx
 DESZCZ_PO_S = 20 * 60  # po deszczu jeszcze 20 min (krople na obiektywie)
