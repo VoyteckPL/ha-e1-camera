@@ -354,8 +354,35 @@ def instaluj_panel():
         log.exception("instaluj_panel")
 
 
+def usun_stare():
+    """Jednorazowe sprzatanie po starej wersji z AI (wzorce, kadry e1_ai_f_*, stare crop)."""
+    import re
+
+    n = 0
+    try:
+        for pat in ("e1_ai_f_*", "e1_crop_bf_*", "e1_klatki_*", "e1_test_*"):
+            for f in SNAP.glob(pat):
+                f.unlink(missing_ok=True)
+                n += 1
+        for f in SNAP.glob("e1_crop_*.jpg"):
+            if re.search(r"_(osoba|pojazd|zwierze)_\d+\.jpg$", f.name):
+                f.unlink(missing_ok=True)
+                n += 1
+        wz = HA / "www" / "wzorce"
+        if wz.exists():
+            shutil.rmtree(wz, ignore_errors=True)
+            n += 1
+        for f in MEDIA.glob("wz__*"):
+            f.unlink(missing_ok=True)
+            n += 1
+    except Exception:
+        log.exception("usun_stare")
+    log.info("sprzatanie starych plikow: %d", n)
+
+
 async def on_start(app):
     instaluj_panel()
+    usun_stare()
     app["sprz"] = asyncio.create_task(sprzatanie())
 
 
