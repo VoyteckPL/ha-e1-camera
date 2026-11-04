@@ -63,6 +63,7 @@ input[type=text]{font:inherit;padding:6px 8px;border-radius:10px;border:1px soli
 .btn.ic{display:inline-flex;align-items:center;justify-content:center;width:40px;height:36px;padding:0}.btn.ic svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 #zw{position:relative;width:100%;flex:1;min-height:0;background:#000;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
 #zw>img,#zw>video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;transform-origin:0 0;will-change:transform;-webkit-user-drag:none;user-select:none;-webkit-user-select:none}
+#pr{display:none;gap:8px;padding:8px 12px 0;overflow-x:auto}#pr.on{display:flex}#pr img{height:60px;width:auto;border-radius:8px;border:2px solid transparent;cursor:pointer;flex:none;background:#000}#pr img.on{border-color:var(--ac)}
 #vc{display:none;align-items:center;gap:8px;padding:8px 14px 0}
 #vc.on{display:flex}#vc input[type=range]{flex:1;min-width:0;accent-color:var(--ac)}#vc .tm{font:12px ui-monospace,monospace;color:var(--mu);white-space:nowrap}
 #vm{position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:#fff;background:#000c;text-align:center;padding:20px;pointer-events:none;z-index:2}
@@ -71,7 +72,7 @@ input[type=text]{font:inherit;padding:6px 8px;border-radius:10px;border:1px soli
 <header><h1><span>Kamera</span><span class="bt"><button class="btn" id="vw">Oś czasu</button><button class="btn" id="stb">Strefy i powiadomienia</button><button class="btn" id="clr">Wyczyść</button></span></h1><div id="fl"></div></header>
 <main id="m"></main>
 
-<div id="st" class="full"><h1 style="padding-top:8px"><span>Strefy i powiadomienia <span id="sv"></span> <small style="color:var(--mu);font-weight:400">v28</small></span><button class="btn" id="stx">Zamknij</button></h1>
+<div id="st" class="full"><h1 style="padding-top:8px"><span>Strefy i powiadomienia <span id="sv"></span> <small style="color:var(--mu);font-weight:400">v29</small></span><button class="btn" id="stx">Zamknij</button></h1>
 <p class="opis">Narysuj strefy na zdjęciu (punkty przyciągają się do innych stref i krawędzi), nazwij je i ustaw osobne powiadomienia. Wszystko poza strefami to „Poza strefami”. Zmiany zapisują się same.</p>
 <select id="gsel" style="width:100%;margin-bottom:8px"></select>
 <div id="zch" class="seg" style="margin-bottom:8px"></div>
@@ -82,6 +83,7 @@ input[type=text]{font:inherit;padding:6px 8px;border-radius:10px;border:1px soli
 <div id="sh"><div id="sp">
 <div id="sph"><div><b id="sht"></b><small id="shs"></small></div><span class="bt"><button class="btn ic" id="bsv" title="Zapisz"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v3h16v-3"/></svg></button><button class="btn ic" id="shx" title="Zamknij">✕</button></span></div>
 <div id="zw"><img id="zi"><video id="zv" playsinline muted style="display:none"></video><div id="vm"></div></div>
+<div id="pr"></div>
 <div id="vc"><button class="btn" id="vp">▶</button><input type="range" id="vr" min="0" max="1000" value="0"><span class="tm" id="vt">0:00</span><button class="btn" id="vmu" title="Dźwięk">🔊</button></div>
 <div id="sb"><button class="btn pri" id="bph">Wycinek</button><button class="btn" id="bfu" hidden>Cały kadr</button><button class="btn" id="bvd">Wideo</button></div>
 </div></div>
@@ -151,11 +153,12 @@ zw.addEventListener('wheel',e=>{e.preventDefault();zm(S*(e.deltaY<0?1.15:1/1.15)
 
 /* ---------- arkusz zdarzenia ---------- */
 let EV=null,poll=null,PM='crop';
-const phUrl=()=>SN+((PM=='full'||!EV.crop)?EV.plik:EV.crop);
+const phUrl=()=>PM.startsWith('os')&&(EV.osoby||[])[+PM.slice(2)]?SN+EV.osoby[+PM.slice(2)]:SN+((PM=='full'||!EV.crop)?EV.plik:EV.crop);
+function prRender(){const o=(EV&&EV.osoby)||[];const pr=$('pr');pr.className=o.length>1?'on':'';pr.innerHTML=o.map((f,i)=>`<img src="${SN}${esc(f)}" data-os="${i}" class="${PM=='os'+i?'on':''}">`).join('')}
 const fmt=t=>{t=Math.max(0,t|0);return (t/60|0)+':'+String(t%60).padStart(2,'0')};
 function msg(t){const m=$('vm');m.style.display=t?'flex':'none';m.textContent=t||''}
-function showPhoto(m){if(m)PM=m;zv.pause();zv.style.display='none';zi.style.display='block';$('vc').className='';$('bph').className='btn'+(PM=='crop'?' pri':'');$('bfu').className='btn'+(PM=='full'?' pri':'');$('bvd').className='btn';msg('');clearTimeout(poll);rz();if(EV){const u=phUrl();if(zi.dataset.u!=u){zi.dataset.u=u;zi.onerror=()=>{zi.onerror=null;zi.src=SN+EV.plik};zi.src=u}}}
-function showVideo(){if(!EV)return;rz();zi.style.display='none';zv.style.display='block';$('bph').className='btn';$('bfu').className='btn';$('bvd').className='btn pri';tryVideo()}
+function showPhoto(m){if(m)PM=m;zv.pause();zv.style.display='none';zi.style.display='block';$('vc').className='';$('bph').className='btn'+(PM=='crop'?' pri':'');prRender();$('bfu').className='btn'+(PM=='full'?' pri':'');$('bvd').className='btn';msg('');clearTimeout(poll);rz();if(EV){const u=phUrl();if(zi.dataset.u!=u){zi.dataset.u=u;zi.onerror=()=>{zi.onerror=null;zi.src=SN+EV.plik};zi.src=u}}}
+function showVideo(){if(!EV)return;rz();document.querySelectorAll('#pr img.on').forEach(i=>i.classList.remove('on'));zi.style.display='none';zv.style.display='block';$('bph').className='btn';$('bfu').className='btn';$('bvd').className='btn pri';tryVideo()}
 function tryVideo(){clearTimeout(poll);const url=SN+'e1_v_'+EV.b+'.mp4';
 msg('Przygotowuję wideo…');
 fetch(url,{method:'HEAD',cache:'no-store'}).then(r=>{if(!r.ok)throw 0;
@@ -170,7 +173,7 @@ PM='crop';delete zi.dataset.u;$('bfu').hidden=!(e&&e.crop&&e.plik&&e.crop!=e.pli
 $('sh').className='on';showPhoto()}
 async function saveCur(){if(!EV)return;const vid=zv.style.display!='none';
 if(vid&&!zv.dataset.src){msg('Wideo jeszcze się przygotowuje…');setTimeout(()=>{if(zv.dataset.src)msg('')},1500);return}
-const url=vid?zv.dataset.src:phUrl();const nm='kamera_'+EV.b.replace(/^e1_/,'')+(vid?'.mp4':PM=='full'?'_kadr.jpg':'.jpg');
+const url=vid?zv.dataset.src:phUrl();const nm='kamera_'+EV.b.replace(/^e1_/,'')+(vid?'.mp4':PM=='full'?'_kadr.jpg':PM.startsWith('os')?'_osoba'+(+PM.slice(2)+1)+'.jpg':'.jpg');
 try{const r=await fetch(url,{cache:'no-store'});if(!r.ok)throw 0;const bl=await r.blob();const f=new File([bl],nm,{type:bl.type||(vid?'video/mp4':'image/jpeg')});
 if(navigator.canShare&&navigator.canShare({files:[f]})){try{await navigator.share({files:[f]});return}catch(e){if(e&&e.name=='AbortError')return}}
 const a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download=nm;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000)}
@@ -267,6 +270,7 @@ else if(d.v){openEv(d.v);showVideo()}
 else if(d.p){sure(t,()=>{fire({b:d.p,plik:(ALL.find(x=>x.b==d.p)||{}).plik});last=''})}
 else if(t.id=='clr'){sure(t,()=>{fire({wszystko:true});last=''})}
 else if(t.id=='shx'||ev.target.id=='sh'){closeEv()}
+else if(d.os!==undefined){showPhoto('os'+d.os)}
 else if(t.id=='bph'){showPhoto('crop')}
 else if(t.id=='bfu'){showPhoto('full')}
 else if(t.id=='bsv'){saveCur()}

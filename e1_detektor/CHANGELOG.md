@@ -47,3 +47,8 @@
 
 ## 0.4.5
 - Panel (v28): przycisk wyciszenia dźwięku w odtwarzaczu wideo (zapamiętuje wybór).
+
+## 0.5.0
+- Zdarzenia z osobą: po chwili detektor przegląda klip (do 20 s) i wybiera klatkę, na której widać najwięcej osób razem. Zdjęcie grupowe podmienia kadr w historii i powiadomieniu (to samo `tag`, bez ponownego dźwięku).
+- Gdy w klatce jest co najmniej 2 osoby, powstają też osobne kadry każdej osoby; w arkuszu zdarzenia (panel v29) pojawiają się jako miniatury z zoomem i zapisem.
+- Pomocniczo: `b=grupa` w /analyze uruchamia tę analizę na istniejącym klipie (test).

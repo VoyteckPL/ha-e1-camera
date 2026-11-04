@@ -364,7 +364,10 @@ def analiza_klip_sync(clip: Path, b, klasy):
 
 
 def popraw_kadr_sync(clip, b, n0):
-    """Z klipu wybiera klatke z najwieksza liczba osob. Zwraca (crop, pelny, n), gdy jest ich wiecej niz n0."""
+    """Z klipu wybiera klatke z najwieksza liczba osob (razem w jednym kadrze).
+
+    Zwraca dict: crop/plik (grupowe, tylko gdy osob jest wiecej niz n0), osoby (osobne kadry, gdy >= 2) i n.
+    """
     tmpd = tempfile.mkdtemp(prefix="e1g_")
     try:
         subprocess.run(
@@ -381,13 +384,26 @@ def popraw_kadr_sync(clip, b, n0):
             bx, rect, n = wybierz_kadr(boxes, *img.size)
             key = (n, box_score(bx, *img.size))
             if best is None or key > best[0]:
-                best = (key, img, rect, n)
-        if not best or best[3] <= n0:
+                sel = sorted((x for x in boxes if x[4] >= max(MIN_CONF, bx[4] * 0.6)), key=lambda x: x[0])
+                best = (key, img, rect, n, sel)
+        if not best:
             return None
-        crop, pelny = f"e1_crop_{b}_g.jpg", f"e1_best_{b}_g.jpg"
-        zapisz_kadr(best[1], best[2], SNAP / crop)
-        best[1].convert("RGB").save(SNAP / pelny, "JPEG", quality=90)
-        return crop, pelny, best[3]
+        _, img, rect, n, sel = best
+        grupa = n > n0
+        osoby = []
+        if n >= 2:
+            for i, x in enumerate(sel[:6]):
+                nm = f"e1_os_{b}_{i}.jpg"
+                zapisz_kadr(img, x[:4], SNAP / nm)
+                osoby.append(nm)
+        if not grupa and not osoby:
+            return None
+        out = {"n": n, "osoby": osoby, "grupa": grupa, "crop": "", "plik": ""}
+        if grupa:
+            out["crop"], out["plik"] = f"e1_crop_{b}_g.jpg", f"e1_best_{b}_g.jpg"
+            zapisz_kadr(img, rect, SNAP / out["crop"])
+            img.convert("RGB").save(SNAP / out["plik"], "JPEG", quality=90)
+        return out
     finally:
         shutil.rmtree(tmpd, ignore_errors=True)
 
@@ -404,15 +420,15 @@ async def popraw_kadr(b, n0, rodzaj, lok, hm, powiadom, glosno):
         if not w:
             log.info("kadr %s: bez zmian (na zdjeciu %s os.)", b, n0)
             return
-        crop, pelny, n = w
-        log.info("kadr %s: lepszy z klipu, osob %s -> %s", b, n0, n)
+        n = w["n"]
+        log.info("kadr %s: z klipu osob %s -> %s, grupowe=%s, osobne=%s", b, n0, n, w["grupa"], len(w["osoby"]))
         async with reolink.HA() as ha:
             await ha.cmd({
                 "type": "fire_event",
                 "event_type": "kamera_zdarzenie_popr",
                 "event_data": {
-                    "b": b, "crop": crop, "plik": pelny, "n": n, "rodzaj": rodzaj, "lok": lok, "hm": hm,
-                    "pow": 1 if (powiadom and LAST_B.get(rodzaj) == b) else 0, "glosno": 1 if glosno else 0,
+                    "b": b, "crop": w["crop"], "plik": w["plik"], "osoby": w["osoby"], "n": n, "rodzaj": rodzaj, "lok": lok, "hm": hm,
+                    "pow": 1 if (powiadom and w["grupa"] and LAST_B.get(rodzaj) == b) else 0, "glosno": 1 if glosno else 0,
                 },
             })
     except Exception:
@@ -431,6 +447,14 @@ async def analyze(request):
         pre = str(d.get("plik", ""))
         pliki = sorted(f.name for f in SNAP.glob("e1_*.jpg") if f.name.startswith("e1_" + pre) and "_crop_" not in f.name and "_best_" not in f.name)
         return web.json_response({"ok": True, "pliki": pliki})
+    if str(d.get("b", "")) == "grupa":
+        bb = str(d.get("plik", "")).strip()
+        clip = SNAP / f"e1_v_{bb}.mp4"
+        if not bb or "/" in bb or not clip.exists():
+            return web.json_response({"ok": False, "blad": "brak klipu"})
+        async with GLOCK:
+            w = await asyncio.get_running_loop().run_in_executor(None, popraw_kadr_sync, clip, bb, 1)
+        return web.json_response({"ok": True, "wynik": w})
     b = str(d.get("b", "")).strip()
     plik = str(d.get("plik", "")).strip()
     rodzaj = RODZAJ.get(str(d.get("rodzaj", "osoba")).lower(), "osoba")
