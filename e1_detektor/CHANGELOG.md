@@ -88,3 +88,6 @@
 
 ## 0.8.3
 - Panel v34: ponawia pobranie listy aut, gdy dodatek chwilowo niedostepny (znikaly przyciski oznaczania).
+
+## 0.8.4
+- Test b=obrys: dorysowanie obrysow do istniejacych zdarzen.

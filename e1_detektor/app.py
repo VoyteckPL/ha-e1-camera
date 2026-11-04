@@ -810,6 +810,24 @@ async def analyze(request):
         elif str(d.get("plik", "")) == "sensor":
             _park_sensor(_park_lista())
         return web.json_response({"ok": True, "zaparkowane": _park_lista()})
+    if str(d.get("b", "")) == "obrys":
+        lista = [x.strip() for x in str(d.get("plik", "")).split(",") if x.strip() and "/" not in x]
+
+        async def _o():
+            loop = asyncio.get_running_loop()
+            for bb in lista:
+                try:
+                    async with GLOCK:
+                        ad = await loop.run_in_executor(None, adnotuj_sync, bb, SNAP / f"{bb}.jpg")
+                    log.info("obrys-test %s -> %s", bb, ad and ad["plik"])
+                    if ad:
+                        async with reolink.HA() as ha:
+                            await ha.cmd({"type": "fire_event", "event_type": "kamera_zdarzenie_popr", "event_data": _poj_event(bb, ad, "", "")})
+                except Exception:
+                    log.exception("obrys %s", bb)
+
+        asyncio.create_task(_o())
+        return web.json_response({"ok": True, "start": lista})
     if str(d.get("b", "")) == "sledz":
         lista = [x.strip() for x in str(d.get("plik", "")).split(",") if x.strip() and "/" not in x]
 
