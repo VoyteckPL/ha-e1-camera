@@ -788,8 +788,14 @@ def _poj_event(b, w, lok, hm, ruch=None):
 async def sledz_pojazd(b, lok, hm, granica="", pelny=""):
     """W tle: ruch pojazdu z klipu (wjazd/wyjazd/przejazd), rozpoznanie aut i kadr z obrysami; aktualizuje wpis w historii."""
     try:
-        clip = await klip_do_analizy(b)
         loop = asyncio.get_running_loop()
+        if pelny:  # od razu: obrysy i nazwy aut ze zdjecia zdarzenia (bez czekania na klip)
+            async with GLOCK:
+                ad0 = await loop.run_in_executor(None, adnotuj_sync, b, SNAP / pelny)
+            if ad0:
+                async with reolink.HA() as ha:
+                    await ha.cmd({"type": "fire_event", "event_type": "kamera_zdarzenie_popr", "event_data": _poj_event(b, ad0, lok, hm)})
+        clip = await klip_do_analizy(b)
         w = None
         if clip:
             async with GLOCK:

@@ -97,3 +97,6 @@
 
 ## 0.8.6
 - Dedupe aut: tez przy IoU > 0.35.
+
+## 0.8.7
+- Obrysy i nazwy aut od razu po zdarzeniu (przed klipem).
