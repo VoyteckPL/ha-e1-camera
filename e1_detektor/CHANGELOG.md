@@ -70,3 +70,6 @@
 
 ## 0.7.1
 - Skan zaparkowanych aut co 20 min i na zadanie (b=zaparkowane, plik=skan): zdjecie z kamery -> auta w strefie Podjazd -> rejestr. Mazda 5: srebrna.
+
+## 0.7.2
+- Skan: znane auta liczone w calym kadrze, nieznane tylko na podjezdzie.

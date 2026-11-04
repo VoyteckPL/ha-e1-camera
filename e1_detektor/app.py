@@ -863,12 +863,12 @@ def skan_sync():
     stare = _park_lista()
     park = []
     for i, bx in enumerate(detect(img, KLASY["pojazd"], MIN_CONF)):
-        if pid and strefy.przypisz(bx, iw, ih, cfg, "skan") != pid:
-            continue
         _, rect, _ = wybierz_kadr([bx], iw, ih)
         crop = f"e1_crop_skan_{i}.jpg"
         zapisz_kadr(img, rect, SNAP / crop)
         ra = auta.rozpoznaj(SNAP / crop)
+        if not ra and pid and strefy.przypisz(bx, iw, ih, cfg, "skan") != pid:
+            continue  # nieznane auto poza podjazdem (np. na ulicy) nie liczy sie jako zaparkowane
         t = time.time()
         if ra:
             t = next((p["t"] for p in stare if p.get("auto") == ra["id"]), t)
