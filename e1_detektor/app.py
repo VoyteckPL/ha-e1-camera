@@ -281,6 +281,10 @@ def analiza_klip_sync(clip: Path, b, klasy):
 
 async def analyze(request):
     d = await request.json()
+    if str(d.get("b", "")) == "lista":
+        pre = str(d.get("plik", ""))
+        pliki = sorted(f.name for f in SNAP.glob("e1_*.jpg") if f.name.startswith("e1_" + pre) and "_crop_" not in f.name and "_best_" not in f.name)
+        return web.json_response({"ok": True, "pliki": pliki})
     b = str(d.get("b", "")).strip()
     plik = str(d.get("plik", "")).strip()
     rodzaj = RODZAJ.get(str(d.get("rodzaj", "osoba")).lower(), "osoba")

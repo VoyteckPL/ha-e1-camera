@@ -6,3 +6,6 @@
 
 ## 0.2.1
 - Jednorazowe sprzątanie plików po starej wersji z AI.
+
+## 0.2.2
+- Pomocnicze: `b=lista` w /analyze zwraca zdjęcia o danym prefiksie.
