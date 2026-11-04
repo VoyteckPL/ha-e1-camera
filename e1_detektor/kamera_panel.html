@@ -442,7 +442,7 @@ if(!d.z||!d.f2)return;
 if(t.type=='checkbox')setU(d.z,d.k,{n:t.checked?1:0});else if(t.type=='time'&&t.value)setU(d.z,d.k,{[d.f2]:t.value})});
 document.addEventListener('keydown',e=>{if(e.key=='Escape')closeEv()});
 
-function ping(){if(document.visibilityState!='visible')return;const h=H();if(h)h.callService('input_text','set_value',{entity_id:'input_text.kamera_panel_ping',value:String(Math.floor(Date.now()/1000))})}
+function ping(){if(document.visibilityState!='visible')return;const h=H();if(h)try{h.callWS({type:'call_service',domain:'input_text',service:'set_value',service_data:{entity_id:'input_text.kamera_panel_ping',value:String(Math.floor(Date.now()/1000))}}).catch(()=>{})}catch(e){}}
 
 
 function lvFsRot(){const w=document.querySelector('.lvw');if(!w)return;const on=w.classList.contains('fs');w.classList.toggle('rot',on&&innerHeight>innerWidth);if(window.lvAp)lvAp()}

@@ -177,3 +177,6 @@
 
 ## 0.14.2
 - Pelny ekran na zywo: wlasny overlay z zoomem, auto-obrot do landscape.
+
+## 0.14.3
+- Ping panelu przez callWS (bez czerwonego toastu przy chwilowym braku lacznosci).
