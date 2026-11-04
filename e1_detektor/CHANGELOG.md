@@ -79,3 +79,6 @@
 
 ## 0.8.0
 - Obrysy wszystkich aut na kadrze (kolor i nazwa), osobne oznaczanie kazdego auta (pojazdy w historii), panel v33.
+
+## 0.8.1
+- Obrys karoserii (kanciasty wielokat z GrabCut, opencv) zamiast prostokata.

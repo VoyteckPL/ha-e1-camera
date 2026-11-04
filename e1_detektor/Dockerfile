@@ -5,7 +5,7 @@ ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg libgomp1 \
     && rm -rf /var/lib/apt/lists/* \
-    && pip install onnxruntime numpy pillow aiohttp
+    && pip install onnxruntime numpy pillow aiohttp opencv-python-headless
 
 WORKDIR /app
 
