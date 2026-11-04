@@ -158,3 +158,7 @@
 
 ## 0.12.2
 - Panel: przycisk "Na żywo" (natywny podgląd HA z kamery; zapasowo odświeżane zdjęcia).
+
+## 0.13.0
+- Panel przebudowany pod telefon: dolna nawigacja (Zdarzenia / Na żywo / Ustawienia), domyślnie oś czasu, zwarte przyciski.
+- Zakładka Na żywo: podgląd, suwaki czułości AI i obrazu, presety (Dzień, Noc, Deszcz, Czuły, Spokojny, Własny), cofnij.

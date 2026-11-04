@@ -80,20 +80,51 @@ input[type=text]{font:inherit;padding:6px 8px;border-radius:10px;border:1px soli
 #vc.on{display:flex}#vc input[type=range]{flex:1;min-width:0;accent-color:var(--ac)}#vc .tm{font:12px ui-monospace,monospace;color:var(--mu);white-space:nowrap}
 #vm{position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:#fff;background:#000c;text-align:center;padding:20px;pointer-events:none;z-index:2}
 #sb{display:flex;gap:8px;padding:10px 12px calc(12px + env(safe-area-inset-bottom))}#sb .btn{flex:1;padding:10px 8px;font-size:15px}#sb .btn[hidden]{display:none}
-</style></head><body>
-<header><h1><span>Kamera</span><span class="bt"><button class="btn" id="vw">Oś czasu</button><button class="btn" id="stb">Strefy i powiadomienia</button><button class="btn pri" id="lvb">Na żywo</button><button class="btn" id="tub">Strojenie</button><button class="btn" id="clr">Wyczyść</button></span></h1><div id="fl"></div></header>
+
+/* ---- uklad telefonu ---- */
+main{padding-bottom:calc(84px + env(safe-area-inset-bottom))}
+.tab{display:none;padding:10px 12px calc(90px + env(safe-area-inset-bottom))}
+body[data-tab=live] #tl,body[data-tab=ust] #ts{display:block}
+body[data-tab=live] header,body[data-tab=ust] header,body[data-tab=live] #m,body[data-tab=ust] #m,body[data-tab=live] #pk,body[data-tab=ust] #pk{display:none!important}
+#nav{position:fixed;left:0;right:0;bottom:0;z-index:12;display:flex;background:var(--cd);border-top:1px solid var(--bd);padding-bottom:env(safe-area-inset-bottom)}
+#nav button{flex:1;border:0;background:none;color:var(--mu);font:inherit;font-size:12px;padding:8px 4px 6px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;min-height:56px}
+#nav button i{font-style:normal;font-size:22px;line-height:1}
+body[data-tab=zd] #nav [data-tab=zd],body[data-tab=live] #nav [data-tab=live],body[data-tab=ust] #nav [data-tab=ust]{color:var(--ac);font-weight:600}
+.btn.big{padding:12px 14px;font-size:15px;border-radius:12px;width:100%}
+.btn{min-height:34px}.row{flex-wrap:wrap}.tc .row,.card .row{justify-content:flex-start}.tc .row .btn,.card .row .btn{flex:1 1 0;padding:7px 4px;white-space:nowrap;text-align:center}
+.chip{padding:7px 13px;font-size:14px}
+/* na zywo */
+.lvw{position:relative;background:#000;border-radius:12px;overflow:hidden;aspect-ratio:16/9}.lvw img{width:100%;height:100%;object-fit:contain;display:block}
+.lvw .lvb{position:absolute;right:8px;bottom:8px;background:#000a;color:#fff;border:0;border-radius:10px;padding:6px 10px;font:inherit;font-size:13px;cursor:pointer}
+.lvw .lvi{position:absolute;left:8px;top:8px;background:#000a;color:#fff;border-radius:8px;padding:2px 8px;font-size:12px}
+.pre{display:flex;gap:8px;overflow-x:auto;padding:10px 0 4px;scrollbar-width:none}.pre::-webkit-scrollbar{display:none}
+.pre button{flex:none;border:1px solid var(--bd);background:var(--cd);color:var(--tx);border-radius:14px;padding:8px 14px;font:inherit;font-size:14px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:78px}
+.pre button i{font-style:normal;font-size:20px}.pre button.on{background:var(--ac);border-color:var(--ac);color:#fff}
+.pre button small{font-size:11px;opacity:.8}
+.sl{display:flex;flex-direction:column;gap:2px}.sl .sh{display:flex;justify-content:space-between;font-size:14px}.sl .sh b{font-variant-numeric:tabular-nums}
+.sl input[type=range]{width:100%;height:34px;accent-color:var(--ac)}
+.lvu{display:flex;gap:8px;margin:6px 0}.lvu .btn{flex:1}
+</style></head><body data-tab="zd">
+<header><h1><span id="ttl">Zdarzenia</span><span class="bt"><button class="btn" id="vw">Oś czasu</button></span></h1><div id="fl"></div></header>
 <div id="pk"></div>
 <main id="m"></main>
 
-<div id="st" class="full"><h1 style="padding-top:8px"><span>Strefy i powiadomienia <span id="sv"></span> <small style="color:var(--mu);font-weight:400">v37</small></span><button class="btn" id="stx">Zamknij</button></h1>
+<section id="tl" class="tab"></section>
+<section id="ts" class="tab">
+<div class="set"><h3>Strefy i powiadomienia</h3><p class="opis" style="margin:0">Rysowanie stref na zdjęciu oraz osobne powiadomienia dla osób, aut i zwierząt w każdej strefie.</p><button class="btn pri big" id="stb">Otwórz</button></div>
+<div class="set"><h3>Strojenie</h3><p class="opis" style="margin:0" id="tus">Zbieranie danych do uczenia czułości.</p><button class="btn big" id="tub">Pokaż dane</button></div>
+<div class="set"><h3>Historia</h3><p class="opis" style="margin:0">Usuwa wszystkie zdarzenia z panelu (pliki zostaną posprzątane automatycznie).</p><button class="btn big" id="clr">Wyczyść historię</button></div>
+<p class="opis" style="text-align:center">Panel kamery v42</p>
+</section>
+<nav id="nav"><button data-tab="zd"><i>🗂</i><span>Zdarzenia</span></button><button data-tab="live"><i>🎥</i><span>Na żywo</span></button><button data-tab="ust"><i>⚙️</i><span>Ustawienia</span></button></nav>
+
+<div id="st" class="full"><h1 style="padding-top:8px"><span>Strefy i powiadomienia <span id="sv"></span> <small style="color:var(--mu);font-weight:400">v42</small></span><button class="btn" id="stx">Zamknij</button></h1>
 <p class="opis">Narysuj strefy na zdjęciu (punkty przyciągają się do innych stref i krawędzi), nazwij je i ustaw osobne powiadomienia. Wszystko poza strefami to „Poza strefami”. Zmiany zapisują się same.</p>
 <select id="gsel" style="width:100%;margin-bottom:8px"></select>
 <div id="zch" class="seg" style="margin-bottom:8px"></div>
 <div id="grc"><button class="btn" id="gzm">＋</button><button class="btn" id="gzl">－</button><button class="btn" id="gzr">Reset</button><span>Zoom: dwa palce lub kółko myszy; przesuwaj przeciągając tło, dotknięcie dodaje punkt</span></div><div id="grw"><div id="grz"><img id="gi" draggable="false"><svg id="gs" viewBox="0 0 1000 750" preserveAspectRatio="none"></svg></div></div>
 <div class="bt" style="margin:8px 0"><button class="btn" id="grdel">Usuń punkt</button><button class="btn" id="grundo">Cofnij</button><button class="btn" id="grclr">Wyczyść obszar</button><button class="btn pri" id="znew">+ Nowa strefa</button></div>
 <div id="zl"></div></div>
-
-<div id="lv" class="full"><h1 style="padding-top:8px"><span>Na żywo <small id="lvs" style="color:var(--mu);font-weight:400"></small></span><button class="btn" id="lvx">Zamknij</button></h1><img id="lvi" style="width:100%;border-radius:10px;background:#000"><p class="opis">Podgląd odświeżany co ok. sekundę (zdjęcia z kamery).</p></div>
 
 <div id="tu" class="full"><h1 style="padding-top:8px"><span>Strojenie kamery</span><button class="btn" id="tux">Zamknij</button></h1><div id="tuc"></div></div>
 
@@ -113,7 +144,7 @@ const NAZ={Osoba:'Osoba',Pojazd:'Samochód','Zwierzę':'Zwierzę'};
 const KOL=['#2563eb','#16a34a','#f59e0b','#dc2626','#8b5cf6','#0891b2','#db2777','#65a30d'];
 const POZA='poza',DOM={n:1,a:'00:00',b:'23:59',d:'1111111',m:0,c:60,s:1,t:0,h:1};
 let cur='wszystko',last='',ALL=[],TV=false;
-try{cur=localStorage.getItem('kf')||cur;TV=localStorage.getItem('kv')=='t'}catch(e){}
+try{cur=localStorage.getItem('kf')||cur;const kv=localStorage.getItem('kv');TV=kv?kv=='t':innerWidth<700}catch(e){}
 const H=()=>{try{return parent.document.querySelector('home-assistant').hass}catch(e){return null}};
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -154,7 +185,7 @@ for(const e of list){const d=day(e.czas);if(d!=g){if(g)out+='</div>';out+=`<h2>$
 const tg=(e.auto?`<span class="tag a">${esc(e.auto)}</span>`:'')+(e.ruch?`<span class="tag p">${esc(e.ruch)}</span>`:'')+`<span class="tag"><span class="dotc" style="background:${zcol(e.lok)}"></span>${esc(e.lok||'')}</span>${+e.conf>0?`<span class="tag">${Math.round(e.conf*100)}%</span>`:''}${+e.pow?'<span class="tag p">powiadomiono</span>':''}`;
 const im=`<img loading="lazy" src="${esc(img(e))}" data-e="${esc(e.b)}" onerror="this.onerror=null;this.src='${SN}${esc(e.plik)}'">`;
 const lab=e.rodzaj=='Pojazd'?carsHtml(e):'';
-const rw=lab+`<div class="row"><button class="btn" data-v="${esc(e.b)}">▶ Wideo</button><button class="btn${FAL.has(e.b)?' on':''}" data-fa="${esc(e.b)}">${FAL.has(e.b)?'✓ Fałszywy':'Fałszywy'}</button><button class="btn" data-p="${esc(e.b)}">Usuń</button></div>`;
+const rw=lab+`<div class="row"><button class="btn" data-v="${esc(e.b)}">▶ Wideo</button><button class="btn${FAL.has(e.b)?' on':''}" data-fa="${esc(e.b)}" title="Oznacz jako fałszywy alarm">${FAL.has(e.b)?'✓ Fałsz.':'Fałsz.'}</button><button class="btn" data-p="${esc(e.b)}">Usuń</button></div>`;
 if(TV){const gp=prev?gapTxt(prev,e.czas):'';if(gp)out+=`<div class="gap">${gp}</div>`;prev=e.czas;
 out+=`<div class="ti"><span class="tm">${esc(e.czas.slice(11,16))}</span><span class="dot"></span><div class="tc">${im}<div class="body"><div class="top"><span>${NAZ[e.rodzaj]||esc(e.rodzaj)}</span></div><div class="tags">${tg}</div>${rw}</div></div></div>`}
 else out+=`<div class="card">${im}<div class="body"><div class="top"><span>${NAZ[e.rodzaj]||esc(e.rodzaj)}</span><span class="time">${esc(e.czas.slice(11,16))}</span></div><div class="tags">${tg}</div>${rw}</div></div>`}
@@ -317,10 +348,49 @@ el.innerHTML=`<p class="opis">Tryb: <b>${esc(tr)}</b>. Uczenie startuje po kilku
 <svg class="spk" viewBox="0 0 300 60" preserveAspectRatio="none">${spark(se,'jasn','#2563eb',255)}${spark(se,'szum','#f59e0b',30)}</svg><p class="opis">Ostatnie ~12 godzin: niebieska – jasność obrazu, pomarańczowa – szum.</p>
 <h2>Zdarzenia (7 dni)</h2>${zd?`<table class="tt"><tr><th>Rodzaj</th><th>Razem</th><th>Fałszywe</th><th>%</th></tr>${zd}</table>`:'<p class="opis">Jeszcze brak zdarzeń od startu add-onu.</p>'}`}
 
-const LIVE='camera.e1_outdoor_wysoka_rozdzielczosc';let lvT=null;
-function liveSnap(){const h=H(),s=h&&h.states[LIVE];if(!s||!s.attributes.entity_picture)return;$('lvi').src=s.attributes.entity_picture+(s.attributes.entity_picture.includes('?')?'&':'?')+'_='+Date.now()}
-function liveOpen(){try{const ha=parent.document.querySelector('home-assistant');if(!ha)throw 0;ha.dispatchEvent(new CustomEvent('hass-more-info',{bubbles:true,composed:true,detail:{entityId:LIVE}}));return}catch(e){}
-$('lv').className='full on';liveSnap();clearInterval(lvT);lvT=setInterval(liveSnap,1000)}
+
+/* ---------- zakladki ---------- */
+let TAB='zd';
+try{TAB=localStorage.getItem('ktab')||'zd'}catch(e){}
+function setTab(t){TAB=t;document.body.dataset.tab=t;try{localStorage.setItem('ktab',t)}catch(e){}$('ttl').textContent=t=='live'?'Na żywo':t=='ust'?'Ustawienia':'Zdarzenia';scrollTo(0,0);if(t=='live'){lvBuild();lvSnap();lvSync()}if(t=='ust')tusSync();if(t=='zd'){last='';render()}}
+/* ---------- na zywo: podglad + suwaki + presety ---------- */
+const LVC='camera.e1_outdoor_wysoka_rozdzielczosc';
+const N='number.e1_outdoor_';
+const SLG=[['Wykrywanie (AI)',[['Osoby',N+'czulosc_wykrywania_osob_przez_ai'],['Pojazdy',N+'czulosc_wykrywania_pojazdow_przez_ai'],['Zwierzęta',N+'czulosc_wykrywania_zwierzat_przez_ai'],['Ruch ogólny',N+'czulosc_na_ruch']]],
+['Obraz',[['Jasność',N+'jasnosc_obrazu'],['Kontrast',N+'kontrast_obrazu'],['Nasycenie',N+'nasycenie_obrazu'],['Ostrość',N+'ostrosc_obrazu']]]];
+const SEL=[['Tryb dzień/noc','select.e1_outdoor_tryb_dzien_noc'],['Reflektor kamery','select.e1_outdoor_reflektor']];
+const E_OS=SLG[0][1][0][1],E_PO=SLG[0][1][1][1],E_ZW=SLG[0][1][2][1],E_RU=SLG[0][1][3][1],E_JA=SLG[1][1][0][1],E_KO=SLG[1][1][1][1],E_NA=SLG[1][1][2][1],E_OT=SLG[1][1][3][1];
+const PRES=[
+['dzien','☀️','Dzień','spokojnie',{[E_OS]:50,[E_PO]:50,[E_ZW]:50,[E_RU]:35,[E_JA]:128,[E_KO]:128,[E_NA]:128,[E_OT]:128}],
+['noc','🌙','Noc','czulej',{[E_OS]:70,[E_PO]:75,[E_ZW]:65,[E_RU]:40,[E_JA]:128,[E_KO]:140,[E_NA]:100,[E_OT]:120}],
+['deszcz','🌧','Deszcz','mniej kropli',{[E_OS]:65,[E_PO]:65,[E_ZW]:55,[E_RU]:25}],
+['czuly','🎯','Czuły','łap wszystko',{[E_OS]:75,[E_PO]:80,[E_ZW]:70,[E_RU]:45}],
+['spokojny','🤫','Spokojny','mało alarmów',{[E_OS]:45,[E_PO]:45,[E_ZW]:40,[E_RU]:25}]];
+function wlasny(){try{return JSON.parse(localStorage.getItem('kam_wlasny')||'null')}catch(e){return null}}
+let lvDrag=false,lvT0=0;
+const lvNum=e=>{const h=H(),s=h&&h.states[e];return s&&!isNaN(+s.state)?+s.state:null};
+function lvBuild(){const el=$('tl');if(el.dataset.b)return;el.dataset.b=1;
+const pr=PRES.map(p=>`<button data-pre="${p[0]}"><i>${p[1]}</i><span>${p[2]}</span><small>${p[3]}</small></button>`).join('')+`<button data-pre="wlasny" id="prw"><i>⭐</i><span>Własny</span><small>zapisany</small></button>`;
+let g='';for(const [t,ls] of SLG){g+=`<div class="set"><h3>${t}</h3>`+ls.map(l=>`<div class="sl"><div class="sh"><span>${l[0]}</span><b data-lv="${l[1]}">–</b></div><input type="range" data-sl="${l[1]}" min="0" max="100" step="1"></div>`).join('')+`</div>`}
+g+=`<div class="set"><h3>Noc i światło</h3>`+SEL.map(l=>`<div class="f"><label>${l[0]}</label><select data-se="${l[1]}"></select></div>`).join('')+`</div>`;
+el.innerHTML=`<div class="lvw"><img id="lvi" alt=""><span class="lvi" id="lvt">na żywo</span><button class="lvb" id="lvfs">⛶ Pełny ekran</button></div>
+<div class="pre" id="pre">${pr}</div>
+<div class="lvu"><button class="btn" id="lvundo">↩ Cofnij zmiany</button><button class="btn" id="lvsave">⭐ Zapisz jako Własny</button></div>
+<p class="opis" id="lvmsg" style="margin:4px 0 0"></p>${g}
+<p class="opis">Presety to punkty startowe – dopasuj suwaki, a „Zapisz jako Własny” zapamięta Twój układ (na tym urządzeniu). Uczenie automatyczne (Strojenie) będzie je z czasem proponować.</p>`}
+function lvSnap(){if(TAB!='live')return;const h=H(),s=h&&h.states[LVC];if(!s||!s.attributes.entity_picture)return;const u=s.attributes.entity_picture;const i=$('lvi');if(!i)return;const nu=u+(u.includes('?')?'&':'?')+'_='+Date.now();const im=new Image();im.onload=()=>{i.src=nu;$('lvt').textContent='na żywo · '+new Date().toLocaleTimeString('pl-PL')};im.src=nu}
+function lvSync(){if(TAB!='live'||!$('tl').dataset.b)return;const h=H();if(!h)return;
+document.querySelectorAll('[data-sl]').forEach(r=>{const e=r.dataset.sl,s=h.states[e];if(!s)return;const a=s.attributes;r.min=a.min!=null?a.min:0;r.max=a.max!=null?a.max:100;r.step=a.step||1;if(!lvDrag||document.activeElement!==r){r.value=s.state;document.querySelector(`[data-lv="${e}"]`).textContent=Math.round(+s.state)}});
+document.querySelectorAll('[data-se]').forEach(sel=>{const s=h.states[sel.dataset.se];if(!s)return;const o=s.attributes.options||[];if(sel.dataset.o!=o.join('|')){sel.innerHTML=o.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');sel.dataset.o=o.join('|')}if(document.activeElement!==sel)sel.value=s.state});
+const w=wlasny();
+document.querySelectorAll('#pre button').forEach(b=>{const id=b.dataset.pre;let v=id=='wlasny'?w:(PRES.find(p=>p[0]==id)||[])[4];b.style.display=id=='wlasny'&&!w?'none':'';b.classList.toggle('on',!!v&&Object.keys(v).every(e=>lvNum(e)===+v[e]))})}
+async function lvSet(e,v){const h=H();if(!h)return;try{await h.callWS({type:'call_service',domain:'number',service:'set_value',service_data:{entity_id:e,value:+v}})}catch(x){}}
+function lvSnapshot(){const o={};for(const [,ls] of SLG)for(const l of ls){const v=lvNum(l[1]);if(v!=null)o[l[1]]=v}return o}
+async function lvApply(vals,txt){try{localStorage.setItem('kam_prev',JSON.stringify(lvSnapshot()))}catch(e){}$('lvmsg').textContent=txt+'…';await Promise.all(Object.keys(vals).map(e=>lvSet(e,vals[e])));$('lvmsg').textContent=txt+' – ustawione ✓';setTimeout(()=>{if($('lvmsg'))$('lvmsg').textContent=''},3000);setTimeout(lvSync,800)}
+function tusSync(){const h=H(),s=h&&h.states['sensor.kamera_strojenie'];const el=$('tus');if(!el)return;if(!s){el.textContent='Add-on strojenia nie podaje danych.';return}const a=s.attributes,st=a.stat||{};el.textContent=`Zebrano: ${st.probki||0} próbek, ${st.zdarzenia||0} zdarzeń, ${a.etykiet||0} oznaczeń „Fałszywy”. Tryb: ${a.tryb}.`}
+document.addEventListener('input',ev=>{const r=ev.target;if(r.dataset&&r.dataset.sl){lvDrag=true;document.querySelector(`[data-lv="${r.dataset.sl}"]`).textContent=r.value}});
+document.addEventListener('change',ev=>{const r=ev.target;if(r.dataset&&r.dataset.sl){lvDrag=false;lvSet(r.dataset.sl,r.value);setTimeout(lvSync,800)}else if(r.dataset&&r.dataset.se){const h=H();if(h)h.callWS({type:'call_service',domain:'select',service:'select_option',service_data:{entity_id:r.dataset.se,option:r.value}}).catch(()=>{})}});
+document.addEventListener('pointerup',()=>{lvDrag=false});
 /* ---------- klikniecia ---------- */
 document.addEventListener('click',ev=>{const t=ev.target.closest('button,img')||ev.target,d=t.dataset||{};
 if(d.f){cur=d.f;try{localStorage.setItem('kf',cur)}catch(_){}last='';render()}
@@ -340,8 +410,11 @@ else if(t.id=='bsv'){saveCur()}
 else if(t.id=='vmu'){MU=!zv.muted;setMu(MU,true)}
 else if(t.id=='bvd'){showVideo()}
 else if(t.id=='stb'){openSt()}
-else if(t.id=='lvb'){liveOpen()}
-else if(t.id=='lvx'){$('lv').className='full';clearInterval(lvT)}
+else if(d.tab){setTab(d.tab)}
+else if(d.pre){const v=d.pre=='wlasny'?wlasny():(PRES.find(p=>p[0]==d.pre)||[])[4];if(v)lvApply(v,'Preset '+(d.pre=='wlasny'?'Własny':PRES.find(p=>p[0]==d.pre)[2]))}
+else if(t.id=='lvundo'){let p=null;try{p=JSON.parse(localStorage.getItem('kam_prev')||'null')}catch(e){}if(p)lvApply(p,'Cofnięto');else $('lvmsg').textContent='Nie ma czego cofać.'}
+else if(t.id=='lvsave'){try{localStorage.setItem('kam_wlasny',JSON.stringify(lvSnapshot()));$('lvmsg').textContent='Zapisano jako Własny ✓'}catch(e){$('lvmsg').textContent='Nie można zapisać'}lvSync()}
+else if(t.id=='lvfs'){try{parent.document.querySelector('home-assistant').dispatchEvent(new CustomEvent('hass-more-info',{bubbles:true,composed:true,detail:{entityId:LVC}}))}catch(e){}}
 else if(t.id=='tub'){$('tu').className='full on';tuRender()}
 else if(t.id=='tux'){$('tu').className='full'}
 else if(t.id=='stx'){$('st').className='full';last=''}
@@ -365,5 +438,5 @@ if(t.type=='checkbox')setU(d.z,d.k,{n:t.checked?1:0});else if(t.type=='time'&&t.
 document.addEventListener('keydown',e=>{if(e.key=='Escape')closeEv()});
 
 function ping(){if(document.visibilityState!='visible')return;const h=H();if(h)h.callService('input_text','set_value',{entity_id:'input_text.kamera_panel_ping',value:String(Math.floor(Date.now()/1000))})}
-render();loadCfg();loadAuta();chkUrl();setInterval(()=>{render();pkRender();chkUrl();if($('tu').classList.contains('on'))tuRender()},1500);setInterval(()=>{if(!AUTA.length)loadAuta()},8000);ping();setInterval(ping,10000);document.addEventListener('visibilitychange',ping);
+setTab(TAB);render();loadCfg();loadAuta();chkUrl();setInterval(()=>{render();pkRender();chkUrl();if($('tu').classList.contains('on'))tuRender();lvSync();tusSync()},1500);setInterval(lvSnap,1200);setInterval(()=>{if(!AUTA.length)loadAuta()},8000);ping();setInterval(ping,10000);document.addEventListener('visibilitychange',ping);
 </script></body></html>
