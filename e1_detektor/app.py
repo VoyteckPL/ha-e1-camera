@@ -1019,6 +1019,10 @@ def skan_sync():
         park.append({"t": t, "b": "skan", "box": _norm(bx, iw, ih), "auto": ra["id"] if ra else None,
                      "nazwa": auta.etykieta_pelna(ra) if ra else "", "crop": crop})
     _park_zapisz(park)
+    try:
+        adnotuj_sync("skan", tmp)
+    except Exception:
+        log.exception("skan adnotacja")
     return park
 
 

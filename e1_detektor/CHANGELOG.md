@@ -82,3 +82,6 @@
 
 ## 0.8.1
 - Obrys karoserii (kanciasty wielokat z GrabCut, opencv) zamiast prostokata.
+
+## 0.8.2
+- Skan zapisuje tez kadr z obrysami (e1_best_skan_a0.jpg).
