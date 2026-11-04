@@ -1,5 +1,5 @@
 name: E1 Kamera - detektor
-version: "0.2.2"
+version: "0.2.3"
 slug: e1_detektor
 description: Lokalny detektor osób, samochodów i zwierząt (ONNX) do kadrowania zdjęć z kamery Reolink E1 Outdoor
 url: https://github.com/VoyteckPL/ha-e1-camera

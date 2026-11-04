@@ -224,9 +224,32 @@ def przygotuj_wideo_sync(clip: Path, out: Path):
     return True
 
 
+async def sasiedni_klip(t0, limit):
+    """Gdy kamera nie nagrala wlasnego klipu (rownolegle zdarzenia), uzyj klipu z tego samego momentu."""
+    end = time.time() + limit
+    while time.time() < end:
+        best = None
+        for f in MEDIA.glob("e1_rec_*.mp4"):
+            try:
+                if t0 - 12 <= f.stat().st_mtime <= t0 + 25 and ffprobe_ok(f):
+                    if best is None or f.stat().st_mtime > best.stat().st_mtime:
+                        best = f
+            except OSError:
+                pass
+        if best:
+            return best
+        await asyncio.sleep(2.0)
+    return None
+
+
 async def przygotuj_wideo(b):
     try:
-        clip = await czekaj_na_klip(b, 90)
+        t0 = time.time()
+        clip = await czekaj_na_klip(b, 25)
+        if not clip:
+            clip = await sasiedni_klip(t0, 20)
+            if clip:
+                log.info("klip sasiedni dla %s: %s", b, clip.name)
         if not clip:
             log.warning("brak klipu dla %s", b)
             return

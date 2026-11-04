@@ -9,3 +9,6 @@
 
 ## 0.2.2
 - Pomocnicze: `b=lista` w /analyze zwraca zdjęcia o danym prefiksie.
+
+## 0.2.3
+- Wideo: gdy kamera nie nagra własnego klipu (równoległe zdarzenia), używany jest klip z tego samego momentu.
