@@ -452,8 +452,158 @@ async def grupa_test(lista):
             log.exception("grupa-test %s", bb)
 
 
+PARK_PLIK = Path(os.environ.get("E1_DATA", "/data")) / "zaparkowane.json"
+RUCH_ETYKIETA = {"wjazd": "Wjazd", "wyjazd": "Wyjazd", "przejazd": "Przejazd"}
+
+
+def _park_lista():
+    try:
+        return json.load(open(PARK_PLIK))
+    except Exception:
+        return []
+
+
+def _park_zapisz(lista):
+    try:
+        tmp = PARK_PLIK.with_suffix(".tmp")
+        json.dump(lista, open(tmp, "w"))
+        os.replace(tmp, PARK_PLIK)
+    except Exception:
+        log.exception("zapis zaparkowanych")
+
+
+def _podjazd_id(cfg):
+    for z in cfg["strefy"]:
+        if "podjazd" in z["nazwa"].lower():
+            return z["id"]
+    return cfg["strefy"][0]["id"] if cfg["strefy"] else None
+
+
+def sledz_sync(clip, b, granica=""):
+    """Sledzi pojazdy w klipie (fps=2, 20 s). Zwraca dict z kierunkiem (wjazd/wyjazd/przejazd) albo None, gdy nic sie nie rusza."""
+    tmpd = tempfile.mkdtemp(prefix="e1t_")
+    try:
+        subprocess.run(
+            ["ffmpeg", "-y", "-loglevel", "error", "-i", str(clip), "-t", "20", "-vf", "fps=2", "-q:v", "3", f"{tmpd}/t_%02d.jpg"],
+            capture_output=True, text=True, timeout=120,
+        )
+        cfg = strefy.wczytaj(granica)
+        pid = _podjazd_id(cfg)
+        tracks = []  # kazdy: {"det": [(idx, box)], "img": {idx: img}}
+        imgs = {}
+        for i, f in enumerate(sorted(Path(tmpd).glob("t_*.jpg"))):
+            img = Image.open(f)
+            img.load()
+            imgs[i] = img
+            iw, ih = img.size
+            used = set()
+            for bx in sorted(detect(img, KLASY["pojazd"], MIN_CONF), key=lambda x: -x[4]):
+                cx, cy = (bx[0] + bx[2]) / 2, (bx[1] + bx[3]) / 2
+                bestt, bd = None, 0.12 * iw
+                for ti, t in enumerate(tracks):
+                    if ti in used or i - t["det"][-1][0] > 3:
+                        continue
+                    lb = t["det"][-1][1]
+                    d = math.hypot(cx - (lb[0] + lb[2]) / 2, cy - (lb[1] + lb[3]) / 2)
+                    if d < bd:
+                        bestt, bd = ti, d
+                if bestt is None:
+                    tracks.append({"det": [(i, bx)]})
+                    used.add(len(tracks) - 1)
+                else:
+                    tracks[bestt]["det"].append((i, bx))
+                    used.add(bestt)
+        if not imgs:
+            return None
+        iw, ih = imgs[0].size
+        wyniki = []
+        for t in tracks:
+            if len(t["det"]) < 3:
+                continue
+            a, z = t["det"][0][1], t["det"][-1][1]
+            disp = math.hypot((z[0] + z[2]) / 2 - (a[0] + a[2]) / 2, (z[1] + z[3]) / 2 - (a[1] + a[3]) / 2) / iw
+            if disp < 0.06:
+                continue  # stoi
+            za = strefy.przypisz(a, iw, ih, cfg, "trk")
+            zz = strefy.przypisz(z, iw, ih, cfg, "trk2")
+            if pid and zz == pid and za != pid:
+                kier = "wjazd"
+            elif pid and za == pid and zz != pid:
+                kier = "wyjazd"
+            else:
+                kier = "przejazd"
+            idx, bb = max(t["det"], key=lambda d: box_score(d[1], iw, ih))
+            wyniki.append({"kier": kier, "disp": disp, "start": a, "end": z, "idx": idx, "box": bb})
+        if not wyniki:
+            return None
+        pri = {"wjazd": 2, "wyjazd": 2, "przejazd": 1}
+        w = max(wyniki, key=lambda r: (pri[r["kier"]], r["disp"]))
+        img = imgs[w["idx"]]
+        _, rect, _ = wybierz_kadr([w["box"]], iw, ih)
+        crop, plik = f"e1_crop_{b}_r.jpg", f"e1_best_{b}_r.jpg"
+        zapisz_kadr(img, rect, SNAP / crop)
+        img.convert("RGB").save(SNAP / plik, "JPEG", quality=90)
+        # rejestr zaparkowanych aut
+        park = [p for p in _park_lista() if time.time() - p["t"] < 7 * 86400]
+        if w["kier"] == "wjazd":
+            park.append({"t": time.time(), "b": b, "box": _norm(w["end"], iw, ih)})
+        elif w["kier"] == "wyjazd":
+            sn = _norm(w["start"], iw, ih)
+            ok = [p for p in park if _iou(sn, p["box"]) > 0.3]
+            if ok:
+                park.remove(max(ok, key=lambda p: _iou(sn, p["box"])))
+            elif park:
+                park.remove(min(park, key=lambda p: p["t"]))
+        _park_zapisz(park)
+        return {"kier": w["kier"], "crop": crop, "plik": plik, "zaparkowane": len(park)}
+    finally:
+        shutil.rmtree(tmpd, ignore_errors=True)
+
+
+async def sledz_pojazd(b, lok, hm, granica=""):
+    """W tle: klasyfikuje ruch pojazdu z klipu i aktualizuje wpis w historii (pole 'ruch')."""
+    try:
+        clip = await czekaj_na_klip(b, 45)
+        if not clip:
+            return
+        loop = asyncio.get_running_loop()
+        async with GLOCK:
+            w = await loop.run_in_executor(None, sledz_sync, clip, b, granica)
+        if not w:
+            log.info("sledzenie %s: nic sie nie rusza (stoi)", b)
+            return
+        log.info("sledzenie %s: %s (zaparkowanych: %s)", b, w["kier"], w["zaparkowane"])
+        async with reolink.HA() as ha:
+            await ha.cmd({
+                "type": "fire_event",
+                "event_type": "kamera_zdarzenie_popr",
+                "event_data": {
+                    "b": b, "crop": w["crop"], "plik": w["plik"], "osoby": [], "n": 1, "rodzaj": "Pojazd", "lok": lok, "hm": hm,
+                    "ruch": RUCH_ETYKIETA[w["kier"]], "pow": 0, "glosno": 0,
+                },
+            })
+    except Exception:
+        log.exception("sledz_pojazd")
+
+
 async def analyze(request):
     d = await request.json()
+    if str(d.get("b", "")) == "zaparkowane":
+        return web.json_response({"ok": True, "zaparkowane": _park_lista()})
+    if str(d.get("b", "")) == "sledz":
+        lista = [x.strip() for x in str(d.get("plik", "")).split(",") if x.strip() and "/" not in x]
+
+        async def _t():
+            loop = asyncio.get_running_loop()
+            for bb in lista:
+                clip = SNAP / f"e1_v_{bb}.mp4"
+                if clip.exists():
+                    async with GLOCK:
+                        w = await loop.run_in_executor(None, sledz_sync, clip, bb, "")
+                    log.info("sledz-test %s -> %s", bb, w)
+
+        asyncio.create_task(_t())
+        return web.json_response({"ok": True, "start": lista})
     if str(d.get("b", "")) == "api":
         try:
             return web.json_response(strefy.api(json.loads(str(d.get("plik", "{}")) or "{}")))
@@ -530,6 +680,10 @@ async def analyze(request):
         tz = strefy._tz()
         hm = (datetime.now(tz) if tz else datetime.now()).strftime("%H:%M")
         asyncio.create_task(popraw_kadr(b, res.get("n", 1), rodzaj, res["strefa"], hm, res.get("powiadom"), res.get("dzwiek", 1) == 1))
+    if rodzaj == "pojazd" and res["found"]:
+        tz = strefy._tz()
+        hm2 = (datetime.now(tz) if tz else datetime.now()).strftime("%H:%M")
+        asyncio.create_task(sledz_pojazd(b, res["strefa"], hm2, granica))
     asyncio.create_task(przygotuj_wideo(b))
     asyncio.create_task(reolink.reolink_wideo(b, rodzaj, SNAP / f"e1_v_{b}.mp4", MEDIA, przygotuj_wideo_sync))
     log.info("analiza %s %s -> %s", b, rodzaj, {k: res.get(k) for k in ("found", "conf", "strefa", "powiadom", "historia", "zrodlo", "czas")})

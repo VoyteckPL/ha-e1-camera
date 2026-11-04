@@ -55,3 +55,6 @@
 
 ## 0.5.1
 - Analiza grupy z klipu: 1 klatka/s przez pierwsze 18 s (szybciej na Pi); `b=grupa` działa w tle i zapisuje wynik w logu.
+
+## 0.6.0
+- Sledzenie pojazdow w klipie: wjazd / wyjazd / przejazd wzgledem strefy Podjazd (pole `ruch` w historii), rejestr zaparkowanych aut (/data/zaparkowane.json, `b=zaparkowane`), test `b=sledz`.

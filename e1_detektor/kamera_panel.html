@@ -72,7 +72,7 @@ input[type=text]{font:inherit;padding:6px 8px;border-radius:10px;border:1px soli
 <header><h1><span>Kamera</span><span class="bt"><button class="btn" id="vw">Oś czasu</button><button class="btn" id="stb">Strefy i powiadomienia</button><button class="btn" id="clr">Wyczyść</button></span></h1><div id="fl"></div></header>
 <main id="m"></main>
 
-<div id="st" class="full"><h1 style="padding-top:8px"><span>Strefy i powiadomienia <span id="sv"></span> <small style="color:var(--mu);font-weight:400">v29</small></span><button class="btn" id="stx">Zamknij</button></h1>
+<div id="st" class="full"><h1 style="padding-top:8px"><span>Strefy i powiadomienia <span id="sv"></span> <small style="color:var(--mu);font-weight:400">v30</small></span><button class="btn" id="stx">Zamknij</button></h1>
 <p class="opis">Narysuj strefy na zdjęciu (punkty przyciągają się do innych stref i krawędzi), nazwij je i ustaw osobne powiadomienia. Wszystko poza strefami to „Poza strefami”. Zmiany zapisują się same.</p>
 <select id="gsel" style="width:100%;margin-bottom:8px"></select>
 <div id="zch" class="seg" style="margin-bottom:8px"></div>
@@ -130,7 +130,7 @@ const list=ALL.filter(F.find(f=>f[0]==cur)[2]);
 if(!list.length){$('m').innerHTML='<p class="empty">Brak zdarzeń.</p>';return}
 let out='',g='',prev=null;
 for(const e of list){const d=day(e.czas);if(d!=g){if(g)out+='</div>';out+=`<h2>${d}</h2><div class="${TV?'tl':'grid'}">`;g=d;prev=null}
-const tg=`<span class="tag"><span class="dotc" style="background:${zcol(e.lok)}"></span>${esc(e.lok||'')}</span>${+e.conf>0?`<span class="tag">${Math.round(e.conf*100)}%</span>`:''}${+e.pow?'<span class="tag p">powiadomiono</span>':''}`;
+const tg=(e.ruch?`<span class="tag p">${esc(e.ruch)}</span>`:'')+`<span class="tag"><span class="dotc" style="background:${zcol(e.lok)}"></span>${esc(e.lok||'')}</span>${+e.conf>0?`<span class="tag">${Math.round(e.conf*100)}%</span>`:''}${+e.pow?'<span class="tag p">powiadomiono</span>':''}`;
 const im=`<img loading="lazy" src="${esc(img(e))}" data-e="${esc(e.b)}" onerror="this.onerror=null;this.src='${SN}${esc(e.plik)}'">`;
 const rw=`<div class="row"><button class="btn" data-v="${esc(e.b)}">▶ Wideo</button><button class="btn" data-p="${esc(e.b)}">Usuń</button></div>`;
 if(TV){const gp=prev?gapTxt(prev,e.czas):'';if(gp)out+=`<div class="gap">${gp}</div>`;prev=e.czas;
