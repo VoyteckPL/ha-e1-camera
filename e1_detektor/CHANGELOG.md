@@ -115,3 +115,6 @@
 
 ## 0.9.2
 - Rozpoznawanie aut po kolorach wewnatrz obrysu (bez tla) z wymaganym marginesem przewagi; skan i etykiety uzywaja wektorow cech; przycisk Obce sie zaznacza (panel v37).
+
+## 0.9.3
+- Obrysy dokladniejsze (do ~26 punktow, GrabCut 480 px), cienkie linie, mala polprzezroczysta nazwa.

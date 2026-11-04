@@ -660,13 +660,13 @@ def segmentuj(img, n):
         w, h = x2 - x1, y2 - y1
         cx1, cy1, cx2, cy2 = int(max(0, x1 - w * 0.08)), int(max(0, y1 - h * 0.08)), int(min(iw, x2 + w * 0.08)), int(min(ih, y2 + h * 0.08))
         c = np.asarray(img.convert("RGB").crop((cx1, cy1, cx2, cy2)))
-        sc = min(1.0, 320 / max(c.shape[:2]))
+        sc = min(1.0, 480 / max(c.shape[:2]))
         sm = cv2.resize(c, None, fx=sc, fy=sc, interpolation=cv2.INTER_AREA) if sc < 1 else c
         bgr = cv2.cvtColor(sm, cv2.COLOR_RGB2BGR)
         H, W = bgr.shape[:2]
         rect = (int((x1 - cx1) * sc + W * 0.02), int((y1 - cy1) * sc + H * 0.02), int(w * sc - W * 0.04), int(h * sc - H * 0.04))
         mask = np.zeros((H, W), np.uint8)
-        cv2.grabCut(bgr, mask, rect, np.zeros((1, 65)), np.zeros((1, 65)), 4, cv2.GC_INIT_WITH_RECT)
+        cv2.grabCut(bgr, mask, rect, np.zeros((1, 65)), np.zeros((1, 65)), 5, cv2.GC_INIT_WITH_RECT)
         mk = np.where((mask == 1) | (mask == 3), 255, 0).astype(np.uint8)
         mk = cv2.morphologyEx(mk, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
         cs, _ = cv2.findContours(mk, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -675,13 +675,12 @@ def segmentuj(img, n):
         cn = max(cs, key=cv2.contourArea)
         if cv2.contourArea(cn) < 0.3 * rect[2] * rect[3]:
             return None
-        hull = cv2.convexHull(cn)  # wypukly obrys: bez "zatok", mniej zlozony
-        per = cv2.arcLength(hull, True)
-        eps = 0.02
-        ap = cv2.approxPolyDP(hull, eps * per, True)
-        while len(ap) > 8 and eps < 0.2:
-            eps += 0.01
-            ap = cv2.approxPolyDP(hull, eps * per, True)
+        per = cv2.arcLength(cn, True)
+        eps = 0.006
+        ap = cv2.approxPolyDP(cn, eps * per, True)
+        while len(ap) > 26 and eps < 0.05:
+            eps += 0.002
+            ap = cv2.approxPolyDP(cn, eps * per, True)
         ap = ap[:, 0, :]
         return [[round((cx1 + p[0] / sc) / iw, 4), round((cy1 + p[1] / sc) / ih, 4)] for p in ap]
     except Exception:
@@ -690,38 +689,40 @@ def segmentuj(img, n):
 
 
 def rysuj(img, items):
-    """Obrys (prostokat) wokol kazdego wykrytego auta + nazwa."""
+    """Cienki obrys kazdego auta + mala, polprzezroczysta nazwa (zeby nie zaslaniala obrazu)."""
     from PIL import ImageDraw, ImageFont
-    img = img.convert("RGB")
-    iw, ih = img.size
-    dr = ImageDraw.Draw(img)
+    base = img.convert("RGBA")
+    iw, ih = base.size
+    ov = Image.new("RGBA", base.size, (0, 0, 0, 0))
+    dr = ImageDraw.Draw(ov)
     try:
-        font = ImageFont.load_default(size=max(18, iw // 70))
+        font = ImageFont.load_default(size=max(12, iw // 115))
     except Exception:
         font = ImageFont.load_default()
-    lw = max(3, iw // 380)
+    lw = max(2, iw // 650)
     zajete = []
     for it in items:
         x1, y1, x2, y2 = it["n"][0] * iw, it["n"][1] * ih, it["n"][2] * iw, it["n"][3] * ih
-        col = KOL.get(it.get("auto_id"), KOL[None])
+        hx = KOL.get(it.get("auto_id"), KOL[None]).lstrip("#")
+        rgb = tuple(int(hx[k:k + 2], 16) for k in (0, 2, 4))
         poly = it.get("poly")
         if poly and len(poly) >= 3:
             pts = [(p[0] * iw, p[1] * ih) for p in poly]
-            dr.line(pts + [pts[0]], fill=col, width=lw, joint="curve")
+            dr.line(pts + [pts[0]], fill=rgb + (235,), width=lw, joint="curve")
             x1, y1 = min(p[0] for p in pts), min(p[1] for p in pts)
         else:
-            dr.rectangle([x1, y1, x2, y2], outline=col, width=lw)
+            dr.rectangle([x1, y1, x2, y2], outline=rgb + (235,), width=lw)
         txt = it.get("nazwa") or "Nieznane auto"
         tb = dr.textbbox((0, 0), txt, font=font)
-        tw, th = tb[2] - tb[0] + 12, tb[3] - tb[1] + 10
+        tw, th = tb[2] - tb[0] + 8, tb[3] - tb[1] + 6
         ty = y1 - th if y1 - th > 0 else y1
         for (lx, ly, lw2, lh) in zajete:
             if x1 < lx + lw2 and x1 + tw > lx and ty < ly + lh and ty + th > ly:
                 ty = ly + lh  # nie nakladaj etykiet
         zajete.append((x1, ty, tw, th))
-        dr.rectangle([x1, ty, x1 + tw, ty + th], fill=col)
-        dr.text((x1 + 6, ty + 3), txt, fill="#000000", font=font)
-    return img
+        dr.rectangle([x1, ty, x1 + tw, ty + th], fill=rgb + (95,))
+        dr.text((x1 + 4, ty + 2), txt, fill=(255, 255, 255, 235), font=font)
+    return Image.alpha_composite(base, ov).convert("RGB")
 
 
 def _poj_publiczne(it):
