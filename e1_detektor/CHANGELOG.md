@@ -139,3 +139,7 @@
 
 ## 0.10.0
 - API: reset próbek wybranego auta.
+
+## 0.11.0
+- Rozpoznawanie aut po kształcie: odcisk z sieci MobileNetV2 + kolor (gdy modelu brak - sam kolor).
+- Bardzo pewne rozpoznania system dodaje sam jako osobną pulę próbek (max 15 na auto), ręczne nigdy nie są wypierane.

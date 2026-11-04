@@ -28,7 +28,9 @@ def _dane():
         d = {}
     d.setdefault("auta", DOMYSLNE)
     d.setdefault("probki", {})
-    d["probki"] = {k: [x for x in v if len(x) == NB] for k, v in d["probki"].items()}  # stary format cech odpada
+    d.setdefault("auto_probki", {})
+    for k in ("probki", "auto_probki"):
+        d[k] = {a: [x for x in v if len(x) in (NB, NB + NE)] for a, v in d[k].items()}  # stary format cech odpada
     return d
 
 
@@ -39,6 +41,54 @@ def _zapisz(d):
 
 
 NB = 17  # 12 przedzialow barwy + 5 poziomow jasnosci dla szarosci/czerni/bieli
+NE = 1280  # dlugosc odcisku z sieci (MobileNetV2, uśredniona mapa cech)
+EMB_PLIK = Path(os.environ.get("E1_EMB", "/app/emb.onnx"))
+EMB_BAZA = 0.5  # cosinus zwykle miedzy roznymi autami ~0.5 -> przeskalowanie do 0..1
+AUTO_MAX = 15  # ile probek moze dodac sam system (reczne nigdy nie sa wypierane)
+AUTO_PROG = 0.9
+_emb = {"s": None, "nazwa": None, "probowano": False}
+
+
+def _sesja():
+    if not _emb["probowano"]:
+        _emb["probowano"] = True
+        try:
+            import onnxruntime as ort
+            so = ort.SessionOptions()
+            so.intra_op_num_threads = 2
+            sess = ort.InferenceSession(str(EMB_PLIK), sess_options=so, providers=["CPUExecutionProvider"])
+            _emb["s"], _emb["nazwa"] = sess, sess.get_outputs()[-1].name
+            log.info("model odciskow aut zaladowany")
+        except Exception as e:
+            log.warning("brak modelu odciskow (%s) - tylko kolor", e)
+    return _emb["s"]
+
+
+def odcisk(img, mask=None):
+    """Wektor cech z sieci dla obrazu auta (tlo poza maska wyszarzone), L2-znormalizowany; None gdy brak modelu."""
+    sess = _sesja()
+    if sess is None:
+        return None
+    try:
+        im = img.convert("RGB")
+        if mask is not None:
+            bg = Image.new("RGB", im.size, (124, 116, 104))
+            im = Image.composite(im, bg, mask)
+        w, h = im.size
+        sc = 224 / max(w, h)
+        im = im.resize((max(1, int(w * sc)), max(1, int(h * sc))))
+        can = Image.new("RGB", (224, 224), (124, 116, 104))
+        can.paste(im, ((224 - im.size[0]) // 2, (224 - im.size[1]) // 2))
+        a = (np.asarray(can, dtype=np.float32) / 255.0 - np.array([0.485, 0.456, 0.406], np.float32)) / np.array([0.229, 0.224, 0.225], np.float32)
+        out = sess.run([_emb["nazwa"]], {sess.get_inputs()[0].name: a.transpose(2, 0, 1)[None].astype(np.float32)})[0]
+        v = np.asarray(out, dtype=np.float32).reshape(-1)
+        if v.size != NE:
+            log.warning("odcisk ma %d wymiarow, oczekiwano %d", v.size, NE)
+            return None
+        return (v / (np.linalg.norm(v) + 1e-9)).tolist()
+    except Exception:
+        log.exception("odcisk")
+        return None
 
 
 def _hist(hsv, m):
@@ -59,9 +109,10 @@ def cecha(path):
     """Cechy z pliku wycinka (srodek kadru) - dla starszych zdarzen bez wielokata."""
     img = Image.open(path).convert("RGB")
     w, h = img.size
-    img = img.crop((int(w * 0.12), int(h * 0.15), int(w * 0.88), int(h * 0.88))).resize((64, 40))
-    hsv = np.asarray(img.convert("HSV"), dtype=np.float32) / 255.0
-    return _hist(hsv, np.ones(hsv.shape[:2], bool))
+    img = img.crop((int(w * 0.12), int(h * 0.15), int(w * 0.88), int(h * 0.88)))
+    e = odcisk(img)
+    hsv = np.asarray(img.resize((64, 40)).convert("HSV"), dtype=np.float32) / 255.0
+    return _hist(hsv, np.ones(hsv.shape[:2], bool)) + (e or [])
 
 
 def cecha_maska(img, poly, n):
@@ -85,11 +136,30 @@ def cecha_maska(img, poly, n):
     if pts:
         ImageDraw.Draw(mask).polygon([((px - int(x1)) * sc, (py - int(y1)) * sc) for px, py in pts], fill=255)
     hsv = np.asarray(crop.convert("HSV"), dtype=np.float32) / 255.0
-    return _hist(hsv, np.asarray(mask) > 0)
+    e = None
+    if _sesja() is not None:  # do sieci wiekszy wycinek (min. 160 px dluzszego boku)
+        big = img.crop((int(x1), int(y1), int(x2), int(y2)))
+        sc2 = min(1.0, 320 / max(big.size))
+        big = big.resize((max(1, int(big.size[0] * sc2)), max(1, int(big.size[1] * sc2))))
+        m2 = Image.new("L", big.size, 255 if pts is None else 0)
+        if pts:
+            ImageDraw.Draw(m2).polygon([((px - int(x1)) * sc2, (py - int(y1)) * sc2) for px, py in pts], fill=255)
+        e = odcisk(big, m2)
+    return _hist(hsv, np.asarray(mask) > 0) + (e or [])
 
 
 def _inter(a, b):
     return float(np.minimum(np.array(a), np.array(b)).sum())
+
+
+def _podobienstwo(v, p):
+    """Podobienstwo 0..1 miedzy wektorem v a probka p (kolor, a gdy oba maja odcisk - tez ksztalt)."""
+    kol = _inter(v[:NB], p[:NB])
+    if len(v) == NB + NE and len(p) == NB + NE:
+        cs = float(np.dot(v[NB:], p[NB:]))
+        ksz = max(0.0, (cs - EMB_BAZA) / (1.0 - EMB_BAZA))
+        return 0.75 * ksz + 0.25 * kol
+    return kol
 
 
 def rozpoznaj(path):
@@ -100,17 +170,28 @@ def rozpoznaj(path):
         return None
 
 
-def rozpoznaj_wektor(v):
-    """Zwraca dict auta (id, nazwa, opis) albo None. Wymaga wyraznej przewagi nad pozostalymi autami."""
+def _probki(d, k, v):
+    """Wszystkie probki auta k (reczne + automatyczne); gdy wektor ma odcisk, preferuje probki z odciskiem."""
+    pr = d["probki"].get(k, []) + d["auto_probki"].get(k, [])
+    if len(v) == NB + NE:
+        z = [p for p in pr if len(p) == NB + NE]
+        if z:
+            return z
+    return pr
+
+
+def rozpoznaj_wektor(v, uczen=True):
+    """Zwraca dict auta (id, nazwa, opis) albo None. Wymaga wyraznej przewagi nad pozostalymi autami.
+    Przy bardzo pewnym rozpoznaniu system sam dodaje probke (osobna, ograniczona pula)."""
     d = _dane()
     scores = []  # (wynik, auto lub None dla "obce")
-    ob = [_inter(v, p) for p in d["probki"].get(OBCE, [])]
+    ob = [_podobienstwo(v, p) for p in _probki(d, OBCE, v)]
     if ob:
         scores.append((max(ob), None))
     for a in d["auta"]:
-        pr = d["probki"].get(a["id"], [])
+        pr = _probki(d, a["id"], v)
         if pr:
-            sc = max(_inter(v, p) for p in pr)
+            sc = max(_podobienstwo(v, p) for p in pr)
         elif a.get("prior"):
             sc = sum(v[i] for i in a["prior"])
         else:
@@ -121,9 +202,16 @@ def rozpoznaj_wektor(v):
     scores.sort(key=lambda x: -x[0])
     bs, best = scores[0]
     second = scores[1][0] if len(scores) > 1 else 0.0
+    log.info("wyniki: %s emb=%s", [(a['id'] if a else 'obce', round(x, 2)) for x, a in scores], len(v) == NB + NE)
     if best is None or bs < PROG or (bs - second) < (MARGINES if bs < 0.85 else 0.03):
         log.info("nierozpoznane: %s", [(a['id'] if a else 'obce', round(x, 2)) for x, a in scores])
         return None
+    if uczen and len(v) == NB + NE and bs >= AUTO_PROG and (bs - second) >= MARGINES and bs < 0.985:
+        ap = d["auto_probki"].setdefault(best["id"], [])
+        ap.append(v)
+        del ap[:-AUTO_MAX]
+        _zapisz(d)
+        log.info("auto-probka dla %s (wynik %.2f)", best["id"], bs)
     return {"id": best["id"], "nazwa": best["nazwa"], "opis": best.get("opis", ""), "score": round(bs, 2)}
 
 
@@ -146,6 +234,7 @@ def reset(auto_id, opis=None):
     """Kasuje probki auta (wraca do priorytetu barwy); opcjonalnie ustawia opis."""
     d = _dane()
     d["probki"].pop(auto_id, None)
+    d["auto_probki"].pop(auto_id, None)
     for a in d["auta"]:
         if a["id"] == auto_id and opis is not None:
             a["opis"] = opis
@@ -154,7 +243,7 @@ def reset(auto_id, opis=None):
 
 def lista():
     d = _dane()
-    return [dict(a, probek=len(d["probki"].get(a["id"], []))) for a in d["auta"]]
+    return [dict(a, probek=len(d["probki"].get(a["id"], [])), auto_probek=len(d["auto_probki"].get(a["id"], []))) for a in d["auta"]]
 
 
 def etykieta_pelna(a):
