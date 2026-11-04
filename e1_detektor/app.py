@@ -408,10 +408,24 @@ def popraw_kadr_sync(clip, b, n0):
         shutil.rmtree(tmpd, ignore_errors=True)
 
 
+async def klip_do_analizy(b, limit=45):
+    """Zywy klip e1_rec; gdy go nie ma - czeka (do ~150 s) na wideo z Reolinka e1_v_{b}.mp4."""
+    clip = await czekaj_na_klip(b, limit)
+    if clip:
+        return clip
+    p = SNAP / f"e1_v_{b}.mp4"
+    t0 = time.time()
+    while time.time() - t0 < 150:
+        if b in reolink.GOTOWE and p.exists():
+            return p
+        await asyncio.sleep(5)
+    return None
+
+
 async def popraw_kadr(b, n0, rodzaj, lok, hm, powiadom, glosno):
     """W tle: gdy w klipie jest klatka z wiekszą liczba osob niz na zdjeciu, podmienia kadr w historii i powiadomieniu."""
     try:
-        clip = await czekaj_na_klip(b, 45)
+        clip = await klip_do_analizy(b)
         if not clip:
             return
         loop = asyncio.get_running_loop()
@@ -563,7 +577,7 @@ def sledz_sync(clip, b, granica=""):
 async def sledz_pojazd(b, lok, hm, granica=""):
     """W tle: klasyfikuje ruch pojazdu z klipu i aktualizuje wpis w historii (pole 'ruch')."""
     try:
-        clip = await czekaj_na_klip(b, 45)
+        clip = await klip_do_analizy(b)
         if not clip:
             return
         loop = asyncio.get_running_loop()

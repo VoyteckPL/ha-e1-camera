@@ -58,3 +58,6 @@
 
 ## 0.6.0
 - Sledzenie pojazdow w klipie: wjazd / wyjazd / przejazd wzgledem strefy Podjazd (pole `ruch` w historii), rejestr zaparkowanych aut (/data/zaparkowane.json, `b=zaparkowane`), test `b=sledz`.
+
+## 0.6.1
+- Sledzenie i poprawa kadru: gdy brak zywego klipu, czeka na wideo z Reolinka.
