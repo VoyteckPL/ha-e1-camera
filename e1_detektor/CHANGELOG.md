@@ -36,3 +36,6 @@
 
 ## 0.4.2
 - Pobieranie nagrań: najpierw bezpośrednio z HA (podpisany adres), potem przez proxy Supervisora; czytelniejsze błędy.
+
+## 0.4.3
+- Kadr pojazdu: detektor uczy się stojących pojazdów (ten sam obiekt w tym samym miejscu w co najmniej 3 wcześniejszych zdarzeniach z ostatnich 12 h, np. zaparkowane auto) i wybiera na zdjęcie pojazd w ruchu. Gdy na zdjęciu są tylko stojące pojazdy, szukany jest ruchomy w klipie; jeśli go brak, pokazywany jest stojący jak dotychczas.

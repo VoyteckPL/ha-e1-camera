@@ -143,6 +143,59 @@ def wybierz_kadr(boxes, iw, ih):
     return best, best[:4], 1
 
 
+STAT_PLIK = Path(os.environ.get("E1_DATA", "/data")) / "statyczne.json"
+STAT_MIN = 3  # tyle wczesniejszych zdarzen z ramka w tym samym miejscu = obiekt stoi (np. zaparkowane auto)
+_stat = None
+
+
+def _stat_lista():
+    global _stat
+    if _stat is None:
+        try:
+            _stat = json.load(open(STAT_PLIK))
+        except Exception:
+            _stat = []
+    return _stat
+
+
+def _iou(a, b):
+    ix = max(0.0, min(a[2], b[2]) - max(a[0], b[0]))
+    iy = max(0.0, min(a[3], b[3]) - max(a[1], b[1]))
+    i = ix * iy
+    u = (a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - i
+    return i / u if u > 0 else 0.0
+
+
+def _norm(bx, iw, ih):
+    return [bx[0] / iw, bx[1] / ih, bx[2] / iw, bx[3] / ih]
+
+
+def ruchome(boxes, iw, ih, b):
+    """Ramki pojazdow bez tych, ktore w tym samym miejscu byly w >= STAT_MIN wczesniejszych zdarzeniach (12 h)."""
+    now = time.time()
+    hist = [h for h in _stat_lista() if now - h["t"] < 12 * 3600 and h["b"] != b]
+    out = []
+    for bx in boxes:
+        n = _norm(bx, iw, ih)
+        if len({h["b"] for h in hist if _iou(n, h["box"]) > 0.8}) < STAT_MIN:
+            out.append(bx)
+    return out
+
+
+def zapamietaj(boxes, iw, ih, b):
+    global _stat
+    now = time.time()
+    s = [h for h in _stat_lista() if now - h["t"] < 24 * 3600 and h["b"] != b]
+    s += [{"t": now, "b": b, "box": _norm(bx, iw, ih)} for bx in boxes]
+    _stat = s[-400:]
+    try:
+        tmp = STAT_PLIK.with_suffix(".tmp")
+        json.dump(_stat, open(tmp, "w"))
+        os.replace(tmp, STAT_PLIK)
+    except Exception:
+        log.exception("zapis statycznych")
+
+
 def zapisz_kadr(img, rect, out_path):
     iw, ih = img.size
     x1, y1, x2, y2 = rect
@@ -254,13 +307,17 @@ def analiza_sync(b, plik, rodzaj, granica, klasy):
     SNAP.mkdir(parents=True, exist_ok=True)
     snap = SNAP / plik
     wynik = None  # (img, boxes, nazwa_pliku_pelnego)
+    zapas = None  # gdy na zdjeciu sa tylko stojace pojazdy: uzywane, jesli klip nic ruchomego nie da
     if snap.exists():
         img = Image.open(snap)
         img.load()
         boxes = detect(img, klasy, MIN_CONF)
         if boxes:
-            wynik = (img, boxes, plik)
-    return wynik, t0
+            if klasy == KLASY["pojazd"] and not ruchome(boxes, *img.size, b):
+                zapas = (img, boxes, plik)
+            else:
+                wynik = (img, boxes, plik)
+    return wynik, zapas
 
 
 def analiza_klip_sync(clip: Path, b, klasy):
@@ -272,16 +329,29 @@ def analiza_klip_sync(clip: Path, b, klasy):
         )
         files = sorted(Path(tmpd).glob("f_*.jpg"))
         best = None
+        zapas = None  # najlepsza klatka tylko ze stojacymi pojazdami
         for f in files:
             img = Image.open(f)
             img.load()
             boxes = detect(img, klasy, MIN_CONF)
+            surowe = boxes
+            if boxes and klasy == KLASY["pojazd"]:
+                boxes = ruchome(boxes, *img.size, b)
+                if not boxes:
+                    sc = max(box_score(x, *img.size) for x in surowe)
+                    if zapas is None or sc > zapas[0]:
+                        zapas = (sc, img, surowe, surowe)
+                    continue
             if not boxes:
                 continue
             sc = max(box_score(x, *img.size) for x in boxes)
             if best is None or sc > best[0]:
-                best = (sc, img, boxes)
+                best = (sc, img, boxes, surowe)
+        if best is None:
+            best = zapas
         if best:
+            if klasy == KLASY["pojazd"]:
+                zapamietaj(best[3], *best[1].size, b)
             nazwa = f"e1_best_{b}.jpg"
             best[1].convert("RGB").save(SNAP / nazwa, "JPEG", quality=90)
             return best[1], best[2], nazwa
@@ -321,16 +391,22 @@ async def analyze(request):
     t0 = time.time()
     zrodlo = "zdjecie"
     async with LOCK:
-        wynik, _ = await loop.run_in_executor(None, analiza_sync, b, plik, rodzaj, granica, klasy)
+        wynik, zapas = await loop.run_in_executor(None, analiza_sync, b, plik, rodzaj, granica, klasy)
         if wynik is None and wait > 0:
             clip = await czekaj_na_klip(b, wait)
             if clip:
                 zrodlo = "klip"
                 wynik = await loop.run_in_executor(None, analiza_klip_sync, clip, b, klasy)
+        if wynik is None and zapas is not None:
+            wynik = zapas
+            zrodlo = "zdjecie"
     res = {"ok": True, "found": False, "rodzaj": rodzaj, "video": f"e1_v_{b}.mp4", "zrodlo": zrodlo}
     if wynik:
         img, boxes, pelny = wynik
         iw, ih = img.size
+        if rodzaj == "pojazd" and zrodlo != "klip":
+            zapamietaj(boxes, iw, ih, b)
+            boxes = ruchome(boxes, iw, ih, b) or boxes
         best, rect, n = wybierz_kadr(boxes, iw, ih)
         crop = f"e1_crop_{b}.jpg"
         cb = await loop.run_in_executor(None, zapisz_kadr, img, rect, SNAP / crop)
