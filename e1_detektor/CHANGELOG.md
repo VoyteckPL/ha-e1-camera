@@ -18,3 +18,6 @@
 - Przypisanie do strefy wg większości punktów przy stopach obiektu, z histerezą na granicy.
 - Decyzja o powiadomieniu i historii zapada w add-onie.
 - Wideo: nagranie 15 s po wykryciu.
+
+## 0.3.1
+- Edytor stref: mniejsze punkty, zoom (dwa palce, kółko, przyciski) i przesuwanie, brak zaznaczania tekstu/obrazu przy klikaniu.

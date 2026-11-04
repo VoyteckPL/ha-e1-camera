@@ -36,7 +36,7 @@ h2{font-size:13px;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;
 .tc img{width:84px;height:63px;flex:none;object-fit:cover;border-radius:8px;background:#000;cursor:pointer;display:block}
 .tc .body{padding:0;gap:4px}
 .full{position:fixed;inset:0;background:var(--bg);z-index:16;overflow:auto;display:none;padding:0 12px 40px}.full.on{display:block}
-#grw{position:relative;width:100%;aspect-ratio:4/3;cursor:crosshair;touch-action:none}#grw img{width:100%;height:100%;display:block;object-fit:fill}#gs{position:absolute;inset:0;width:100%;height:100%}
+#grw{position:relative;width:100%;aspect-ratio:4/3;cursor:crosshair;touch-action:none;overflow:hidden;background:#000;border-radius:10px;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}#grw *{user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}#grz{position:absolute;inset:0;transform-origin:0 0;will-change:transform}#grz img{width:100%;height:100%;display:block;object-fit:fill;pointer-events:none;-webkit-user-drag:none}#gs{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}#grc{display:flex;gap:6px;align-items:center;margin:6px 0}#grc span{font-size:12px;color:var(--mu)}
 /* ustawienia */
 .set{background:var(--cd);border:1px solid var(--bd);border-radius:12px;padding:12px;margin:10px 0;display:flex;flex-direction:column;gap:10px}
 .set h3{margin:0;font-size:16px;display:flex;justify-content:space-between;align-items:center}
@@ -73,7 +73,7 @@ input[type=text]{font:inherit;padding:6px 8px;border-radius:10px;border:1px soli
 <p class="opis">Narysuj strefy na zdjęciu (punkty przyciągają się do innych stref i krawędzi), nazwij je i ustaw osobne powiadomienia. Wszystko poza strefami to „Poza strefami”. Zmiany zapisują się same.</p>
 <select id="gsel" style="width:100%;margin-bottom:8px"></select>
 <div id="zch" class="seg" style="margin-bottom:8px"></div>
-<div id="grw"><img id="gi"><svg id="gs" viewBox="0 0 100 100" preserveAspectRatio="none"></svg></div>
+<div id="grc"><button class="btn" id="gzm">＋</button><button class="btn" id="gzl">－</button><button class="btn" id="gzr">Reset</button><span>Zoom: dwa palce lub kółko myszy; przesuwaj przeciągając tło, dotknięcie dodaje punkt</span></div><div id="grw"><div id="grz"><img id="gi" draggable="false"><svg id="gs" viewBox="0 0 1000 750" preserveAspectRatio="none"></svg></div></div>
 <div class="bt" style="margin:8px 0"><button class="btn" id="grdel">Usuń punkt</button><button class="btn" id="grundo">Cofnij</button><button class="btn" id="grclr">Wyczyść obszar</button><button class="btn pri" id="znew">+ Nowa strefa</button></div>
 <div id="zl"></div></div>
 
@@ -181,27 +181,45 @@ let opened='';function chkUrl(){const q=fromUrl();if(q&&q!=opened){opened=q;open
 /* ---------- edytor stref ---------- */
 let ACT=null,GS=-1,GD=-1;const gw=$('grw');
 const act=()=>CFG.strefy.find(z=>z.id==ACT);
-function gdraw(){let h='';
-CFG.strefy.forEach(z=>{if(z.pts.length<2)return;const pts=z.pts.map(p=>p[0]/10+','+p[1]/10).join(' ');const on=z.id==ACT;
-h+=(z.pts.length>2?`<polygon points="${pts}" fill="${z.kolor}" fill-opacity="${on?.35:.22}" stroke="${z.kolor}" stroke-width="${on?.5:.3}" vector-effect="non-scaling-stroke"/>`:`<polyline points="${pts}" fill="none" stroke="${z.kolor}" stroke-width=".5"/>`)});
-const z=act();if(z)h+=z.pts.map((p,i)=>`<circle cx="${p[0]/10}" cy="${p[1]/10}" r="1.3" fill="${i==GS?'#f59e0b':'#fff'}" stroke="${z.kolor}" stroke-width=".4"/>`).join('');
+let GZ=1,GX=0,GY=0,gd0=0,gs0=1;const GP=new Map();let gmoved=false,gstart=null;
+function gap(){$('grz').style.transform='translate('+GX+'px,'+GY+'px) scale('+GZ+')';gdraw()}
+function gclamp(){const w=gw.clientWidth,h=gw.clientHeight;GX=Math.min(0,Math.max(w-w*GZ,GX));GY=Math.min(0,Math.max(h-h*GZ,GY))}
+function gzoom(n,cx,cy){n=Math.min(10,Math.max(1,n));const r=gw.getBoundingClientRect(),px=cx-r.left,py=cy-r.top;GX=px-(px-GX)*n/GZ;GY=py-(py-GY)*n/GZ;GZ=n;if(GZ==1){GX=0;GY=0}gclamp();gap()}
+function gdraw(){let h='';const k=1/GZ;
+CFG.strefy.forEach(z=>{if(z.pts.length<2)return;const pts=z.pts.map(p=>p[0]+','+p[1]*.75).join(' ');const on=z.id==ACT;
+h+=(z.pts.length>2?`<polygon points="${pts}" fill="${z.kolor}" fill-opacity="${on?.35:.22}" stroke="${z.kolor}" stroke-width="${(on?3:2)*k}"/>`:`<polyline points="${pts}" fill="none" stroke="${z.kolor}" stroke-width="${3*k}"/>`)});
+const z=act();if(z)h+=z.pts.map((p,i)=>`<circle cx="${p[0]}" cy="${p[1]*.75}" r="${(i==GS?5:3.5)*k}" fill="${i==GS?'#f59e0b':'#fff'}" stroke="${z.kolor}" stroke-width="${1.5*k}"/>`).join('');
 $('gs').innerHTML=h}
 function zchips(){$('zch').innerHTML=CFG.strefy.map(z=>`<button class="chip${z.id==ACT?' on':''}" data-act="${z.id}"><span class="dotc" style="background:${z.kolor}"></span>${esc(z.nazwa)}</button>`).join('')||'<span class="opis">Brak stref – dodaj pierwszą.</span>'}
 const dst=(a,b)=>Math.hypot(a[0]-b[0],(a[1]-b[1])*.75);
-function snap(p,self){const T=16;let best=null,bd=T;
+function proj(p,a,b){const dx=b[0]-a[0],dy=b[1]-a[1],l=dx*dx+dy*dy||1;let t=((p[0]-a[0])*dx+(p[1]-a[1])*dy)/l;t=Math.max(0,Math.min(1,t));return [a[0]+t*dx,a[1]+t*dy]}
+function snap(p){const T=14/GZ;let best=null,bd=T;
 CFG.strefy.forEach(z=>{if(z.id==ACT)return;z.pts.forEach(q=>{const d=dst(p,q);if(d<bd){bd=d;best=q.slice()}})});
 if(best)return best;
 CFG.strefy.forEach(z=>{if(z.id==ACT)return;const n=z.pts.length;for(let i=0;i<n;i++){const a=z.pts[i],b=z.pts[(i+1)%n];const q=proj(p,a,b);const d=dst(p,q);if(d<bd){bd=d;best=q}}});
 if(best)return best;
-const q=p.slice();if(q[0]<12)q[0]=0;if(q[0]>988)q[0]=1000;if(q[1]<12)q[1]=0;if(q[1]>988)q[1]=1000;return q}
-function proj(p,a,b){const dx=b[0]-a[0],dy=b[1]-a[1],l=dx*dx+dy*dy||1;let t=((p[0]-a[0])*dx+(p[1]-a[1])*dy)/l;t=Math.max(0,Math.min(1,t));return [a[0]+t*dx,a[1]+t*dy]}
-const gpos=ev=>{const r=gw.getBoundingClientRect();return [Math.max(0,Math.min(1000,(ev.clientX-r.left)/r.width*1000)),Math.max(0,Math.min(1000,(ev.clientY-r.top)/r.height*1000))]};
-gw.addEventListener('pointerdown',ev=>{const z=act();if(!z)return;const q=gpos(ev);GD=-1;let best=55;z.pts.forEach((p,i)=>{const d=dst(p,q);if(d<best){best=d;GD=i}});GS=GD;gdraw();try{gw.setPointerCapture(ev.pointerId)}catch(_){}});
-gw.addEventListener('pointermove',ev=>{const z=act();if(!z||GD<0||!ev.buttons)return;z.pts[GD]=snap(gpos(ev));gdraw()});
-gw.addEventListener('pointerup',ev=>{const z=act();if(!z)return;
-if(GD<0&&z.pts.length<40){const q=snap(gpos(ev));const n=z.pts.length;let bi=-1,bd=22;if(n>=3)for(let i=0;i<n;i++){const d=dst(q,proj(q,z.pts[i],z.pts[(i+1)%n]));if(d<bd){bd=d;bi=i}}
-if(bi>=0){z.pts.splice(bi+1,0,q);GS=bi+1}else{z.pts.push(q);GS=z.pts.length-1}gdraw();saveCfg()}
-else if(GD>=0)saveCfg();GD=-1});
+const q=p.slice(),e=10/GZ;if(q[0]<e)q[0]=0;if(q[0]>1000-e)q[0]=1000;if(q[1]<e)q[1]=0;if(q[1]>1000-e)q[1]=1000;return q}
+const gpos=ev=>{const r=$('grz').getBoundingClientRect();return [Math.max(0,Math.min(1000,(ev.clientX-r.left)/r.width*1000)),Math.max(0,Math.min(1000,(ev.clientY-r.top)/r.height*1000))]};
+gw.addEventListener('contextmenu',e=>e.preventDefault());
+gw.addEventListener('selectstart',e=>e.preventDefault());
+gw.addEventListener('pointerdown',ev=>{ev.preventDefault();try{gw.setPointerCapture(ev.pointerId)}catch(_){}
+GP.set(ev.pointerId,[ev.clientX,ev.clientY]);
+if(GP.size==2){const a=[...GP.values()];gd0=Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1]);gs0=GZ;GD=-1;gmoved=true;return}
+gmoved=false;gstart=[ev.clientX,ev.clientY];GD=-1;const z=act();
+if(z){const q=gpos(ev);let best=45/GZ;z.pts.forEach((p,i)=>{const d=dst(p,q);if(d<best){best=d;GD=i}});GS=GD;gdraw()}});
+gw.addEventListener('pointermove',ev=>{if(!GP.has(ev.pointerId))return;const o=GP.get(ev.pointerId);GP.set(ev.pointerId,[ev.clientX,ev.clientY]);
+if(GP.size==2){const a=[...GP.values()],d=Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1]);gzoom(gs0*d/gd0,(a[0][0]+a[1][0])/2,(a[0][1]+a[1][1])/2);return}
+if(GD>=0){const z=act();if(z){z.pts[GD]=snap(gpos(ev));gmoved=true;gdraw()}return}
+if(!gmoved&&Math.hypot(ev.clientX-gstart[0],ev.clientY-gstart[1])>6)gmoved=true;
+if(gmoved&&GZ>1){GX+=ev.clientX-o[0];GY+=ev.clientY-o[1];gclamp();gap()}});
+const gup=ev=>{if(!GP.has(ev.pointerId))return;GP.delete(ev.pointerId);const z=act();
+if(ev.type=='pointerup'&&GP.size==0&&z){
+ if(GD>=0){if(gmoved)saveCfg()}
+ else if(!gmoved&&z.pts.length<40){const q=snap(gpos(ev));const n=z.pts.length;let bi=-1,bd=20/GZ;if(n>=3)for(let i=0;i<n;i++){const d=dst(q,proj(q,z.pts[i],z.pts[(i+1)%n]));if(d<bd){bd=d;bi=i}}
+ if(bi>=0){z.pts.splice(bi+1,0,q);GS=bi+1}else{z.pts.push(q);GS=z.pts.length-1}gdraw();saveCfg()}}
+if(GP.size==0){GD=-1;gmoved=false}};
+gw.addEventListener('pointerup',gup);gw.addEventListener('pointercancel',gup);
+gw.addEventListener('wheel',e=>{e.preventDefault();gzoom(GZ*(e.deltaY<0?1.2:1/1.2),e.clientX,e.clientY)},{passive:false});
 const seg=(zid,k,f,opts,v)=>opts.map(o=>`<button class="chip${String(o[0])==String(v)?' on':''}" data-z="${zid}" data-k="${k}" data-f2="${f}" data-val="${o[0]}">${o[1]}</button>`).join('');
 const DN=['Pn','Wt','Śr','Cz','Pt','So','Nd'];
 function katHtml(zid,k,nm){const u=getU(zid,k);return `<div class="kat"><h4><span>${nm}</span><label class="sw"><input type="checkbox" data-z="${zid}" data-k="${k}" data-f2="n" ${u.n==1?'checked':''}><span></span></label></h4>
@@ -245,6 +263,9 @@ else if(t.id=='znew'){if(CFG.strefy.length>=8)return;const id='z'+Date.now().toS
 else if(d.zd){sure(t,()=>{CFG.strefy=CFG.strefy.filter(z=>z.id!=d.zd);delete CFG.ust[d.zd];if(ACT==d.zd)ACT=(CFG.strefy[0]||{}).id||null;zchips();zlist();gdraw();saveCfg()})}
 else if(d.zc){const z=CFG.strefy.find(z=>z.id==d.zc);z.kolor=d.col;zchips();zlist();gdraw();saveCfg()}
 else if(d.zp){const z=CFG.strefy.find(z=>z.id==d.zp);z.prio=+d.val;zlist();saveCfg()}
+else if(t.id=='gzm'){const r=gw.getBoundingClientRect();gzoom(GZ*1.5,r.left+r.width/2,r.top+r.height/2)}
+else if(t.id=='gzl'){const r=gw.getBoundingClientRect();gzoom(GZ/1.5,r.left+r.width/2,r.top+r.height/2)}
+else if(t.id=='gzr'){GZ=1;GX=0;GY=0;gap()}
 else if(t.id=='grdel'){const z=act();if(z&&GS>=0){z.pts.splice(GS,1);GS=-1;gdraw();saveCfg()}}
 else if(t.id=='grundo'){const z=act();if(z){z.pts.pop();GS=-1;gdraw();saveCfg()}}
 else if(t.id=='grclr'){const z=act();if(z){z.pts=[];GS=-1;gdraw();saveCfg()}}
