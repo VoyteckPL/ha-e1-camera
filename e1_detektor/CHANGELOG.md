@@ -33,3 +33,6 @@
 
 ## 0.4.1
 - Pobieranie nagrań: podpisany adres bez nagłówka Authorization.
+
+## 0.4.2
+- Pobieranie nagrań: najpierw bezpośrednio z HA (podpisany adres), potem przez proxy Supervisora; czytelniejsze błędy.

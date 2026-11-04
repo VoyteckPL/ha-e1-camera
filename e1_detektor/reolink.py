@@ -101,21 +101,26 @@ def wybierz(pliki, t, kat):
 async def pobierz(ha, mid, cel: Path):
     r = await ha.cmd({"type": "media_source/resolve_media", "media_content_id": mid, "expires": 120})
     url = r["url"]
-    if url.startswith("/"):
-        url = URL + url
+    sciezka = url if url.startswith("/") else "/" + url.split("/", 3)[-1]
+    # 1) bezposrednio do HA z podpisanym adresem, 2) przez proxy Supervisora z tokenem
+    proby = [("http://homeassistant:8123" + sciezka, {}), (URL + sciezka, {"Authorization": "Bearer " + TOKEN})]
     tmp = cel.with_suffix(".part")
+    blad = ""
     async with aiohttp.ClientSession() as s:
-        # adres z authSig jest podpisany: bez naglowka Authorization (z nim HA odpowiada 400)
-        hdr = {} if "authSig=" in url else {"Authorization": "Bearer " + TOKEN}
-        async with s.get(url, headers=hdr, timeout=aiohttp.ClientTimeout(total=300)) as resp:
-            if resp.status >= 400:
-                raise RuntimeError("pobieranie %s: %s" % (resp.status, (await resp.text())[:200]))
-            resp.raise_for_status()
-            with open(tmp, "wb") as fh:
-                async for chunk in resp.content.iter_chunked(1 << 20):
-                    fh.write(chunk)
-    tmp.replace(cel)
-    return cel
+        for u, hdr in proby:
+            try:
+                async with s.get(u, headers=hdr, timeout=aiohttp.ClientTimeout(total=300)) as resp:
+                    if resp.status >= 400:
+                        blad += " [%s %s: %s]" % (u.split("/")[2], resp.status, (await resp.text())[:120])
+                        continue
+                    with open(tmp, "wb") as fh:
+                        async for chunk in resp.content.iter_chunked(1 << 20):
+                            fh.write(chunk)
+                tmp.replace(cel)
+                return cel
+            except aiohttp.ClientError as e:
+                blad += " [%s: %s]" % (u.split("/")[2], e)
+    raise RuntimeError("pobieranie nieudane:" + blad)
 
 
 CONV = asyncio.Lock()
