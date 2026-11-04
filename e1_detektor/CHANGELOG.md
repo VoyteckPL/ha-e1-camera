@@ -27,3 +27,6 @@
 
 ## 0.3.3
 - Log: czas trwania wideo.
+
+## 0.4.0
+- Wideo: główne źródło to nagranie Reolinka z karty SD (z pre-recordem). Klip z HA zostaje jako szybki podgląd i zapas. Wymaga dostępu add-onu do API HA.

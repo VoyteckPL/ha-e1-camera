@@ -20,6 +20,7 @@ import onnxruntime as ort
 from aiohttp import web
 from PIL import Image
 
+import reolink
 import strefy
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -235,6 +236,8 @@ async def przygotuj_wideo(b):
             log.warning("brak klipu dla %s", b)
             return
         out = SNAP / f"e1_v_{b}.mp4"
+        if b in reolink.GOTOWE:
+            return
         ok = await asyncio.get_running_loop().run_in_executor(None, przygotuj_wideo_sync, clip, out)
         if ok:
             try:
@@ -351,6 +354,7 @@ async def analyze(request):
     res.update(strefy.decyzja(cfg, res["strefa_id"], rodzaj, res["found"], ctx))
     res["czas"] = round(time.time() - t0, 2)
     asyncio.create_task(przygotuj_wideo(b))
+    asyncio.create_task(reolink.reolink_wideo(b, rodzaj, SNAP / f"e1_v_{b}.mp4", MEDIA, przygotuj_wideo_sync))
     log.info("analiza %s %s -> %s", b, rodzaj, {k: res.get(k) for k in ("found", "conf", "strefa", "powiadom", "historia", "zrodlo", "czas")})
     return web.json_response(res)
 
