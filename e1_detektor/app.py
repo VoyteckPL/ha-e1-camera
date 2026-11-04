@@ -675,7 +675,14 @@ def segmentuj(img, n):
         cn = max(cs, key=cv2.contourArea)
         if cv2.contourArea(cn) < 0.3 * rect[2] * rect[3]:
             return None
-        ap = cv2.approxPolyDP(cn, 0.012 * cv2.arcLength(cn, True), True)[:, 0, :]
+        hull = cv2.convexHull(cn)  # wypukly obrys: bez "zatok", mniej zlozony
+        per = cv2.arcLength(hull, True)
+        eps = 0.02
+        ap = cv2.approxPolyDP(hull, eps * per, True)
+        while len(ap) > 8 and eps < 0.2:
+            eps += 0.01
+            ap = cv2.approxPolyDP(hull, eps * per, True)
+        ap = ap[:, 0, :]
         return [[round((cx1 + p[0] / sc) / iw, 4), round((cy1 + p[1] / sc) / ih, 4)] for p in ap]
     except Exception:
         log.exception("segmentuj")

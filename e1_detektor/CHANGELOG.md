@@ -103,3 +103,6 @@
 
 ## 0.8.8
 - Rozpoznawanie: Mazda bez priora koloru (ciemne auta nie sa Mazda/Kia), wyzszy prog; etykiety na zdjeciu sie nie nakladaja.
+
+## 0.8.9
+- Obrys prostszy: wypukly, max 8 punktow.
