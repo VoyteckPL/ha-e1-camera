@@ -146,3 +146,6 @@
 
 ## 0.11.1
 - Priorytet barwy (auta bez próbek) tylko gdy żadne auto z próbkami nie pasuje (>=0.55) - Kia nie jest już brana za Seata.
+
+## 0.11.2
+- Bez obrysów na zdjęciach, same etykiety aut.

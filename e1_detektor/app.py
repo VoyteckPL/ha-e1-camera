@@ -689,7 +689,7 @@ def segmentuj(img, n):
 
 
 def rysuj(img, items):
-    """Cienki obrys kazdego auta + mala, polprzezroczysta nazwa (zeby nie zaslaniala obrazu)."""
+    """Sama nazwa auta w srodku jego sylwetki (bez obrysu)."""
     from PIL import ImageDraw, ImageFont
     base = img.convert("RGBA")
     iw, ih = base.size
@@ -708,10 +708,7 @@ def rysuj(img, items):
         poly = it.get("poly")
         if poly and len(poly) >= 3:
             pts = [(p[0] * iw, p[1] * ih) for p in poly]
-            dr.line(pts + [pts[0]], fill=rgb + (235,), width=lw, joint="curve")
-            x1, y1 = min(p[0] for p in pts), min(p[1] for p in pts)
-        else:
-            dr.rectangle([x1, y1, x2, y2], outline=rgb + (235,), width=lw)
+            x1, y1 = min(p[0] for p in pts), min(p[1] for p in pts)  # obrysu nie rysujemy, poligon sluzy do wyliczenia srodka
         txt = {"kia": "KIA", "seat": "SEAT", "mazda": "MAZDA", "obce": "OBCE"}.get(it.get("auto_id"), "?")
         tb = dr.textbbox((0, 0), txt, font=font)
         tw, th = tb[2] - tb[0] + 8, tb[3] - tb[1] + 6
