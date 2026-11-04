@@ -778,6 +778,7 @@ def adnotuj_sync(b, src: Path):
         poly = segmentuj(img, nn)
         f = auta.cecha_maska(img, poly, nn)
         ra = auta.rozpoznaj_wektor(f)
+        log.info("auto %s box=%s conf=%.2f rozpoznano=%s", b, [round(x, 2) for x in nn], bx[4], ra)
         items.append({"i": i, "crop": crop, "n": nn, "poly": poly, "f": f, "auto_id": ra["id"] if ra else None,
                       "nazwa": auta.etykieta_pelna(ra) if ra else ""})
     if not items:

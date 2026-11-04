@@ -127,3 +127,6 @@
 
 ## 0.9.6
 - Opisy aut w środku obrysu – środek ciężkości pola (nie średnia wierzchołków).
+
+## 0.9.7
+- Log wykrytych aut przy skanie (diagnostyka).
