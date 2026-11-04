@@ -143,3 +143,6 @@
 ## 0.11.0
 - Rozpoznawanie aut po kształcie: odcisk z sieci MobileNetV2 + kolor (gdy modelu brak - sam kolor).
 - Bardzo pewne rozpoznania system dodaje sam jako osobną pulę próbek (max 15 na auto), ręczne nigdy nie są wypierane.
+
+## 0.11.1
+- Priorytet barwy (auta bez próbek) tylko gdy żadne auto z próbkami nie pasuje (>=0.55) - Kia nie jest już brana za Seata.

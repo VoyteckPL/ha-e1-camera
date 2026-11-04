@@ -46,6 +46,7 @@ EMB_PLIK = Path(os.environ.get("E1_EMB", "/app/emb.onnx"))
 EMB_BAZA = 0.5  # cosinus zwykle miedzy roznymi autami ~0.5 -> przeskalowanie do 0..1
 AUTO_MAX = 15  # ile probek moze dodac sam system (reczne nigdy nie sa wypierane)
 AUTO_PROG = 0.9
+PRIOR_PROG = 0.55  # priorytet barwy liczy sie tylko gdy zadne auto z probkami nie pasuje
 _emb = {"s": None, "nazwa": None, "probowano": False}
 
 
@@ -188,15 +189,15 @@ def rozpoznaj_wektor(v, uczen=True):
     ob = [_podobienstwo(v, p) for p in _probki(d, OBCE, v)]
     if ob:
         scores.append((max(ob), None))
+    bez = []  # auta bez probek - oceniane po priorytecie barwy, ale tylko gdy zadne auto z probkami nie pasuje
     for a in d["auta"]:
         pr = _probki(d, a["id"], v)
         if pr:
-            sc = max(_podobienstwo(v, p) for p in pr)
+            scores.append((max(_podobienstwo(v, p) for p in pr), a))
         elif a.get("prior"):
-            sc = sum(v[i] for i in a["prior"])
-        else:
-            continue
-        scores.append((sc, a))
+            bez.append((sum(v[i] for i in a["prior"]), a))
+    if not scores or max(x for x, _ in scores) < PRIOR_PROG:
+        scores += bez
     if not scores:
         return None
     scores.sort(key=lambda x: -x[0])
