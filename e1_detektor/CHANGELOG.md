@@ -124,3 +124,6 @@
 
 ## 0.9.5
 - Opisy aut wyraznie widoczne (mniej przezroczyste, ciemny tekst).
+
+## 0.9.6
+- Opisy aut w środku obrysu – środek ciężkości pola (nie średnia wierzchołków).

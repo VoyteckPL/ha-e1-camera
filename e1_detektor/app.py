@@ -716,8 +716,18 @@ def rysuj(img, items):
         tb = dr.textbbox((0, 0), txt, font=font)
         tw, th = tb[2] - tb[0] + 8, tb[3] - tb[1] + 6
         if poly and len(poly) >= 3:
-            cx = sum(p[0] for p in pts) / len(pts)
-            cy = sum(p[1] for p in pts) / len(pts)
+            ar = cxs = cys = 0.0
+            for k in range(len(pts)):  # srodek ciezkosci pola wielokata (wzor Gaussa), nie srednia wierzcholkow
+                xa, ya = pts[k]
+                xb, yb = pts[(k + 1) % len(pts)]
+                cr = xa * yb - xb * ya
+                ar += cr
+                cxs += (xa + xb) * cr
+                cys += (ya + yb) * cr
+            if abs(ar) > 1e-6:
+                cx, cy = cxs / (3 * ar), cys / (3 * ar)
+            else:
+                cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
         else:
             cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
         x1, ty = cx - tw / 2, cy - th / 2  # opis w srodku auta
