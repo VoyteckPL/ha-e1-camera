@@ -155,3 +155,6 @@
 
 ## 0.12.1
 - Panel: widok "Strojenie" (kontekst, czułości, jakość obrazu, zdarzenia 7 dni).
+
+## 0.12.2
+- Panel: przycisk "Na żywo" (natywny podgląd HA z kamery; zapasowo odświeżane zdjęcia).

@@ -81,7 +81,7 @@ input[type=text]{font:inherit;padding:6px 8px;border-radius:10px;border:1px soli
 #vm{position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:#fff;background:#000c;text-align:center;padding:20px;pointer-events:none;z-index:2}
 #sb{display:flex;gap:8px;padding:10px 12px calc(12px + env(safe-area-inset-bottom))}#sb .btn{flex:1;padding:10px 8px;font-size:15px}#sb .btn[hidden]{display:none}
 </style></head><body>
-<header><h1><span>Kamera</span><span class="bt"><button class="btn" id="vw">Oś czasu</button><button class="btn" id="stb">Strefy i powiadomienia</button><button class="btn" id="tub">Strojenie</button><button class="btn" id="clr">Wyczyść</button></span></h1><div id="fl"></div></header>
+<header><h1><span>Kamera</span><span class="bt"><button class="btn" id="vw">Oś czasu</button><button class="btn" id="stb">Strefy i powiadomienia</button><button class="btn pri" id="lvb">Na żywo</button><button class="btn" id="tub">Strojenie</button><button class="btn" id="clr">Wyczyść</button></span></h1><div id="fl"></div></header>
 <div id="pk"></div>
 <main id="m"></main>
 
@@ -92,6 +92,8 @@ input[type=text]{font:inherit;padding:6px 8px;border-radius:10px;border:1px soli
 <div id="grc"><button class="btn" id="gzm">＋</button><button class="btn" id="gzl">－</button><button class="btn" id="gzr">Reset</button><span>Zoom: dwa palce lub kółko myszy; przesuwaj przeciągając tło, dotknięcie dodaje punkt</span></div><div id="grw"><div id="grz"><img id="gi" draggable="false"><svg id="gs" viewBox="0 0 1000 750" preserveAspectRatio="none"></svg></div></div>
 <div class="bt" style="margin:8px 0"><button class="btn" id="grdel">Usuń punkt</button><button class="btn" id="grundo">Cofnij</button><button class="btn" id="grclr">Wyczyść obszar</button><button class="btn pri" id="znew">+ Nowa strefa</button></div>
 <div id="zl"></div></div>
+
+<div id="lv" class="full"><h1 style="padding-top:8px"><span>Na żywo <small id="lvs" style="color:var(--mu);font-weight:400"></small></span><button class="btn" id="lvx">Zamknij</button></h1><img id="lvi" style="width:100%;border-radius:10px;background:#000"><p class="opis">Podgląd odświeżany co ok. sekundę (zdjęcia z kamery).</p></div>
 
 <div id="tu" class="full"><h1 style="padding-top:8px"><span>Strojenie kamery</span><button class="btn" id="tux">Zamknij</button></h1><div id="tuc"></div></div>
 
@@ -314,6 +316,11 @@ el.innerHTML=`<p class="opis">Tryb: <b>${esc(tr)}</b>. Uczenie startuje po kilku
 <h2>Jakość obrazu</h2><div class="tg2"><div><small>Jasność</small><b>${v(o.jasn)}</b></div><div><small>Ostrość</small><b>${v(o.ostrosc)}</b></div><div><small>Szum</small><b>${v(o.szum)}</b></div><div><small>Przepalenia</small><b>${o.przepal!=null?(o.przepal*100).toFixed(1)+'%':'–'}</b></div><div><small>Czerń</small><b>${o.czern!=null?(o.czern*100).toFixed(0)+'%':'–'}</b></div></div>
 <svg class="spk" viewBox="0 0 300 60" preserveAspectRatio="none">${spark(se,'jasn','#2563eb',255)}${spark(se,'szum','#f59e0b',30)}</svg><p class="opis">Ostatnie ~12 godzin: niebieska – jasność obrazu, pomarańczowa – szum.</p>
 <h2>Zdarzenia (7 dni)</h2>${zd?`<table class="tt"><tr><th>Rodzaj</th><th>Razem</th><th>Fałszywe</th><th>%</th></tr>${zd}</table>`:'<p class="opis">Jeszcze brak zdarzeń od startu add-onu.</p>'}`}
+
+const LIVE='camera.e1_outdoor_wysoka_rozdzielczosc';let lvT=null;
+function liveSnap(){const h=H(),s=h&&h.states[LIVE];if(!s||!s.attributes.entity_picture)return;$('lvi').src=s.attributes.entity_picture+(s.attributes.entity_picture.includes('?')?'&':'?')+'_='+Date.now()}
+function liveOpen(){try{const ha=parent.document.querySelector('home-assistant');if(!ha)throw 0;ha.dispatchEvent(new CustomEvent('hass-more-info',{bubbles:true,composed:true,detail:{entityId:LIVE}}));return}catch(e){}
+$('lv').className='full on';liveSnap();clearInterval(lvT);lvT=setInterval(liveSnap,1000)}
 /* ---------- klikniecia ---------- */
 document.addEventListener('click',ev=>{const t=ev.target.closest('button,img')||ev.target,d=t.dataset||{};
 if(d.f){cur=d.f;try{localStorage.setItem('kf',cur)}catch(_){}last='';render()}
@@ -333,6 +340,8 @@ else if(t.id=='bsv'){saveCur()}
 else if(t.id=='vmu'){MU=!zv.muted;setMu(MU,true)}
 else if(t.id=='bvd'){showVideo()}
 else if(t.id=='stb'){openSt()}
+else if(t.id=='lvb'){liveOpen()}
+else if(t.id=='lvx'){$('lv').className='full';clearInterval(lvT)}
 else if(t.id=='tub'){$('tu').className='full on';tuRender()}
 else if(t.id=='tux'){$('tu').className='full'}
 else if(t.id=='stx'){$('st').className='full';last=''}
