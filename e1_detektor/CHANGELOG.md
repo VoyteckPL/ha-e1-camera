@@ -91,3 +91,6 @@
 
 ## 0.8.4
 - Test b=obrys: dorysowanie obrysow do istniejacych zdarzen.
+
+## 0.8.5
+- Usuwanie podwojnych wykryc tego samego auta (ramka zawarta w innej).

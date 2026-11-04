@@ -716,6 +716,23 @@ def _poj_publiczne(it):
     return {"i": it["i"], "crop": it["crop"], "nazwa": it.get("nazwa", ""), "auto_id": it.get("auto_id")}
 
 
+def _bez_duplikatow(boxes):
+    """Odrzuca ramki w >60% zawarte w ramce o wyzszej pewnosci (to samo auto wykryte dwa razy)."""
+    kept = []
+    for bx in sorted(boxes, key=lambda x: -x[4]):
+        area = max(1.0, (bx[2] - bx[0]) * (bx[3] - bx[1]))
+        dup = False
+        for k in kept:
+            ix = max(0.0, min(bx[2], k[2]) - max(bx[0], k[0]))
+            iy = max(0.0, min(bx[3], k[3]) - max(bx[1], k[1]))
+            if ix * iy / area > 0.6:
+                dup = True
+                break
+        if not dup:
+            kept.append(bx)
+    return sorted(kept, key=lambda x: x[0])
+
+
 def adnotuj_sync(b, src: Path):
     """Wykrywa wszystkie auta na pelnym kadrze, rozpoznaje kazde, zapisuje wycinki i kadr z obrysami."""
     if not src.exists():
@@ -724,7 +741,7 @@ def adnotuj_sync(b, src: Path):
     img.load()
     iw, ih = img.size
     items = []
-    for i, bx in enumerate(detect(img, KLASY["pojazd"], MIN_CONF)):
+    for i, bx in enumerate(_bez_duplikatow(detect(img, KLASY["pojazd"], MIN_CONF))):
         _, rect, _ = wybierz_kadr([bx], iw, ih)
         crop = f"e1_crop_{b}_c{i}.jpg"
         zapisz_kadr(img, rect, SNAP / crop)
@@ -1024,7 +1041,7 @@ def skan_sync():
     pid = _podjazd_id(cfg)
     stare = _park_lista()
     park = []
-    for i, bx in enumerate(detect(img, KLASY["pojazd"], MIN_CONF)):
+    for i, bx in enumerate(_bez_duplikatow(detect(img, KLASY["pojazd"], MIN_CONF))):
         _, rect, _ = wybierz_kadr([bx], iw, ih)
         crop = f"e1_crop_skan_{i}.jpg"
         zapisz_kadr(img, rect, SNAP / crop)
