@@ -666,6 +666,9 @@ async def analyze(request):
     if str(d.get("b", "")) == "zaparkowane":
         if str(d.get("plik", "")) == "reset":
             _park_zapisz([])
+        elif str(d.get("plik", "")) == "skan":
+            async with GLOCK:
+                await asyncio.get_running_loop().run_in_executor(None, skan_sync)
         elif str(d.get("plik", "")) == "sensor":
             _park_sensor(_park_lista())
         return web.json_response({"ok": True, "zaparkowane": _park_lista()})
@@ -842,10 +845,55 @@ def usun_stare():
     log.info("sprzatanie starych plikow: %d", n)
 
 
+CAM = os.environ.get("E1_CAM", "camera.e1_outdoor_wysoka_rozdzielczosc")
+
+
+def skan_sync():
+    """Zdjecie z kamery teraz -> auta stojace na podjezdzie -> rejestr zaparkowanych (z rozpoznaniem)."""
+    import urllib.request
+    rq = urllib.request.Request(reolink.URL + "/api/camera_proxy/" + CAM, headers={"Authorization": "Bearer " + reolink.TOKEN})
+    data = urllib.request.urlopen(rq, timeout=20).read()
+    tmp = SNAP / "e1_skan.jpg"
+    tmp.write_bytes(data)
+    img = Image.open(tmp)
+    img.load()
+    iw, ih = img.size
+    cfg = strefy.wczytaj("")
+    pid = _podjazd_id(cfg)
+    stare = _park_lista()
+    park = []
+    for i, bx in enumerate(detect(img, KLASY["pojazd"], MIN_CONF)):
+        if pid and strefy.przypisz(bx, iw, ih, cfg, "skan") != pid:
+            continue
+        _, rect, _ = wybierz_kadr([bx], iw, ih)
+        crop = f"e1_crop_skan_{i}.jpg"
+        zapisz_kadr(img, rect, SNAP / crop)
+        ra = auta.rozpoznaj(SNAP / crop)
+        t = time.time()
+        if ra:
+            t = next((p["t"] for p in stare if p.get("auto") == ra["id"]), t)
+        park.append({"t": t, "b": "skan", "box": _norm(bx, iw, ih), "auto": ra["id"] if ra else None,
+                     "nazwa": auta.etykieta_pelna(ra) if ra else "", "crop": crop})
+    _park_zapisz(park)
+    return park
+
+
+async def skan_petla():
+    await asyncio.sleep(30)
+    while True:
+        try:
+            async with GLOCK:
+                await asyncio.get_running_loop().run_in_executor(None, skan_sync)
+        except Exception as e:
+            log.warning("skan: %s", e)
+        await asyncio.sleep(20 * 60)
+
+
 async def on_start(app):
     instaluj_panel()
     usun_stare()
     app["sprz"] = asyncio.create_task(sprzatanie())
+    app["skan"] = asyncio.create_task(skan_petla())
 
 
 def main():

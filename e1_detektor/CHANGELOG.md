@@ -67,3 +67,6 @@
 
 ## 0.7.0
 - Rozpoznawanie aut domownikow (Kia Sportage 5, Seat Altea, Mazda 5) po kolorze + uczenie z etykiet w panelu; pasek zaparkowanych aut w panelu; nazwy aut w rejestrze i sensorze.
+
+## 0.7.1
+- Skan zaparkowanych aut co 20 min i na zadanie (b=zaparkowane, plik=skan): zdjecie z kamery -> auta w strefie Podjazd -> rejestr. Mazda 5: srebrna.

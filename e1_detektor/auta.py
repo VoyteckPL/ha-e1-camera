@@ -13,7 +13,7 @@ PLIK = Path(os.environ.get("E1_DATA", "/data")) / "auta.json"
 DOMYSLNE = [
     {"id": "kia", "nazwa": "Kia Sportage 5", "opis": "zielona", "prior": [2, 3, 4]},
     {"id": "seat", "nazwa": "Seat Altea", "opis": "niebieski", "prior": [6, 7, 8]},
-    {"id": "mazda", "nazwa": "Mazda 5", "opis": "", "prior": []},
+    {"id": "mazda", "nazwa": "Mazda 5", "opis": "srebrna", "prior": [14]},
 ]
 PROG = 0.5
 MAX_PROBEK = 30
