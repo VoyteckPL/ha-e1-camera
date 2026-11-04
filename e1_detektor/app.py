@@ -343,7 +343,19 @@ async def sprzatanie():
         await asyncio.sleep(3600)
 
 
+def instaluj_panel():
+    try:
+        src = Path("/app/kamera_panel.html")
+        dst = HA / "www" / "kamera_panel.html"
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(src, dst)
+        log.info("panel zainstalowany: %s", dst)
+    except Exception:
+        log.exception("instaluj_panel")
+
+
 async def on_start(app):
+    instaluj_panel()
     app["sprz"] = asyncio.create_task(sprzatanie())
 
 
