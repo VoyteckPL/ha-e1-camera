@@ -12,3 +12,9 @@
 
 ## 0.2.3
 - Wideo: gdy kamera nie nagra własnego klipu (równoległe zdarzenia), używany jest klip z tego samego momentu.
+
+## 0.3.0
+- Strefy: dowolna liczba nazwanych stref z kolorami, przyciąganiem punktów i osobnymi ustawieniami powiadomień dla każdej strefy i kategorii (osoba / samochód / zwierzę).
+- Przypisanie do strefy wg większości punktów przy stopach obiektu, z histerezą na granicy.
+- Decyzja o powiadomieniu i historii zapada w add-onie.
+- Wideo: nagranie 15 s po wykryciu.

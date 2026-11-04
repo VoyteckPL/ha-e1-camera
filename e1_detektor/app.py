@@ -20,6 +20,8 @@ import onnxruntime as ort
 from aiohttp import web
 from PIL import Image
 
+import strefy
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("e1")
 
@@ -129,27 +131,6 @@ def box_score(box, iw, ih):
     return c * size * edge
 
 
-def lok_z_granicy(box, iw, ih, granica):
-    pts = []
-    for s in (granica or "").split(";"):
-        if "," in s:
-            try:
-                a, b = s.split(",")[:2]
-                pts.append((float(a), float(b)))
-            except ValueError:
-                pass
-    if len(pts) < 3:
-        return "podjazd"
-    px = (box[0] + box[2]) / 2 / iw * 1000
-    py = box[3] / ih * 1000
-    ins = False
-    for i in range(len(pts)):
-        a, b = pts[i], pts[i - 1]
-        if (a[1] > py) != (b[1] > py) and px < (b[0] - a[0]) * (py - a[1]) / (b[1] - a[1]) + a[0]:
-            ins = not ins
-    return "podjazd" if ins else "droga"
-
-
 def wybierz_kadr(boxes, iw, ih):
     """Z wykrytych ramek (jedna klatka) wybiera kadr: najlepsza albo suma bliskich."""
     best = max(boxes, key=lambda b: box_score(b, iw, ih))
@@ -231,7 +212,7 @@ async def sasiedni_klip(t0, limit):
         best = None
         for f in MEDIA.glob("e1_rec_*.mp4"):
             try:
-                if t0 - 12 <= f.stat().st_mtime <= t0 + 25 and ffprobe_ok(f):
+                if t0 - 20 <= f.stat().st_mtime <= t0 + 30 and ffprobe_ok(f):
                     if best is None or f.stat().st_mtime > best.stat().st_mtime:
                         best = f
             except OSError:
@@ -245,7 +226,7 @@ async def sasiedni_klip(t0, limit):
 async def przygotuj_wideo(b):
     try:
         t0 = time.time()
-        clip = await czekaj_na_klip(b, 25)
+        clip = await czekaj_na_klip(b, 45)
         if not clip:
             clip = await sasiedni_klip(t0, 20)
             if clip:
@@ -304,6 +285,12 @@ def analiza_klip_sync(clip: Path, b, klasy):
 
 async def analyze(request):
     d = await request.json()
+    if str(d.get("b", "")) == "api":
+        try:
+            return web.json_response(strefy.api(json.loads(str(d.get("plik", "{}")) or "{}")))
+        except Exception as e:
+            log.exception("api")
+            return web.json_response({"ok": False, "blad": str(e)})
     if str(d.get("b", "")) == "lista":
         pre = str(d.get("plik", ""))
         pliki = sorted(f.name for f in SNAP.glob("e1_*.jpg") if f.name.startswith("e1_" + pre) and "_crop_" not in f.name and "_best_" not in f.name)
@@ -312,6 +299,13 @@ async def analyze(request):
     plik = str(d.get("plik", "")).strip()
     rodzaj = RODZAJ.get(str(d.get("rodzaj", "osoba")).lower(), "osoba")
     granica = str(d.get("granica", ""))
+    ctx = {}
+    if granica.startswith("{"):
+        try:
+            ctx = json.loads(granica)
+            granica = str(ctx.get("g", ""))
+        except ValueError:
+            granica = ""
     wait = float(d.get("wait", 25))
     if not b or not plik or "/" in b or "/" in plik:
         return web.json_response({"ok": False, "blad": "zle parametry"}, status=400)
@@ -337,16 +331,23 @@ async def analyze(request):
             found=True,
             conf=round(best[4], 3),
             n=n,
-            lok=lok_z_granicy(best, iw, ih, granica),
+            strefa_id=strefy.przypisz(best, iw, ih, strefy.wczytaj(granica), rodzaj),
             crop=crop,
             pelny=pelny,
             box=[round(v) for v in best[:4]],
             crop_box=list(cb),
             size=[iw, ih],
         )
+    cfg = strefy.wczytaj(granica)
+    if not res.get("strefa_id"):
+        # brak potwierdzenia detektora: pierwsza strefa z listy (glowna) albo "poza"
+        res["strefa_id"] = cfg["strefy"][0]["id"] if cfg["strefy"] else strefy.POZA
+    res["strefa"] = strefy.nazwa(cfg, res["strefa_id"])
+    res["lok"] = res["strefa"]
+    res.update(strefy.decyzja(cfg, res["strefa_id"], rodzaj, res["found"], ctx))
     res["czas"] = round(time.time() - t0, 2)
     asyncio.create_task(przygotuj_wideo(b))
-    log.info("analiza %s %s -> %s", b, rodzaj, {k: res.get(k) for k in ("found", "conf", "lok", "zrodlo", "czas")})
+    log.info("analiza %s %s -> %s", b, rodzaj, {k: res.get(k) for k in ("found", "conf", "strefa", "powiadom", "historia", "zrodlo", "czas")})
     return web.json_response(res)
 
 
