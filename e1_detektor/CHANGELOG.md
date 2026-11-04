@@ -64,3 +64,6 @@
 
 ## 0.6.2
 - Licznik zaparkowanych aut jako sensor.kamera_zaparkowane (b=zaparkowane, plik=reset|sensor).
+
+## 0.7.0
+- Rozpoznawanie aut domownikow (Kia Sportage 5, Seat Altea, Mazda 5) po kolorze + uczenie z etykiet w panelu; pasek zaparkowanych aut w panelu; nazwy aut w rejestrze i sensorze.

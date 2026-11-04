@@ -21,6 +21,7 @@ import onnxruntime as ort
 from aiohttp import web
 from PIL import Image
 
+import auta
 import reolink
 import strefy
 
@@ -498,6 +499,11 @@ def _park_sensor(lista):
                 "unit_of_measurement": "aut",
                 "icon": "mdi:car-multiple",
                 "od": [datetime.fromtimestamp(p["t"]).strftime("%Y-%m-%d %H:%M") for p in lista],
+                "auta": [
+                    {"nazwa": p.get("nazwa") or "Nierozpoznane auto", "od": datetime.fromtimestamp(p["t"]).strftime("%H:%M"),
+                     "dzien": datetime.fromtimestamp(p["t"]).strftime("%Y-%m-%d"), "crop": p.get("crop", "")}
+                    for p in lista
+                ],
             },
         }).encode()
         rq = urllib.request.Request(
@@ -514,6 +520,28 @@ def _podjazd_id(cfg):
         if "podjazd" in z["nazwa"].lower():
             return z["id"]
     return cfg["strefy"][0]["id"] if cfg["strefy"] else None
+
+
+def _park_dodaj(park, ra, b, box, crop):
+    if ra:
+        park = [p for p in park if p.get("auto") != ra["id"]]
+    park.append({"t": time.time(), "b": b, "box": box, "auto": ra["id"] if ra else None,
+                 "nazwa": auta.etykieta_pelna(ra) if ra else "", "crop": crop})
+    return park
+
+
+def nieruchome_sync(b):
+    """Auto stoi: rozpoznaje je ze zdjecia zdarzenia; znane auto dopisuje do rejestru zaparkowanych."""
+    crop = SNAP / f"e1_crop_{b}.jpg"
+    if not crop.exists():
+        return None
+    ra = auta.rozpoznaj(crop)
+    if ra:
+        park = [p for p in _park_lista() if time.time() - p["t"] < 7 * 86400]
+        if not any(p.get("auto") == ra["id"] for p in park):
+            park = _park_dodaj(park, ra, b, [0, 0, 1, 1], f"e1_crop_{b}.jpg")
+            _park_zapisz(park)
+    return ra
 
 
 def sledz_sync(clip, b, granica=""):
@@ -580,19 +608,23 @@ def sledz_sync(clip, b, granica=""):
         crop, plik = f"e1_crop_{b}_r.jpg", f"e1_best_{b}_r.jpg"
         zapisz_kadr(img, rect, SNAP / crop)
         img.convert("RGB").save(SNAP / plik, "JPEG", quality=90)
-        # rejestr zaparkowanych aut
+        # rozpoznanie auta + rejestr zaparkowanych
+        ra = auta.rozpoznaj(SNAP / crop)
         park = [p for p in _park_lista() if time.time() - p["t"] < 7 * 86400]
         if w["kier"] == "wjazd":
-            park.append({"t": time.time(), "b": b, "box": _norm(w["end"], iw, ih)})
+            park = _park_dodaj(park, ra, b, _norm(w["end"], iw, ih), crop)
         elif w["kier"] == "wyjazd":
             sn = _norm(w["start"], iw, ih)
-            ok = [p for p in park if _iou(sn, p["box"]) > 0.3]
-            if ok:
-                park.remove(max(ok, key=lambda p: _iou(sn, p["box"])))
-            elif park:
-                park.remove(min(park, key=lambda p: p["t"]))
+            if ra and any(p.get("auto") == ra["id"] for p in park):
+                park = [p for p in park if p.get("auto") != ra["id"]]
+            else:
+                ok = [p for p in park if _iou(sn, p["box"]) > 0.3]
+                if ok:
+                    park.remove(max(ok, key=lambda p: _iou(sn, p["box"])))
+                elif park:
+                    park.remove(min(park, key=lambda p: p["t"]))
         _park_zapisz(park)
-        return {"kier": w["kier"], "crop": crop, "plik": plik, "zaparkowane": len(park)}
+        return {"kier": w["kier"], "crop": crop, "plik": plik, "zaparkowane": len(park), "auto": ra}
     finally:
         shutil.rmtree(tmpd, ignore_errors=True)
 
@@ -607,16 +639,22 @@ async def sledz_pojazd(b, lok, hm, granica=""):
         async with GLOCK:
             w = await loop.run_in_executor(None, sledz_sync, clip, b, granica)
         if not w:
-            log.info("sledzenie %s: nic sie nie rusza (stoi)", b)
+            ra = await loop.run_in_executor(None, nieruchome_sync, b)
+            log.info("sledzenie %s: nic sie nie rusza (stoi), auto=%s", b, ra)
+            if ra:
+                async with reolink.HA() as ha:
+                    await ha.cmd({"type": "fire_event", "event_type": "kamera_zdarzenie_popr", "event_data": {
+                        "b": b, "crop": "", "plik": "", "osoby": [], "n": 1, "rodzaj": "Pojazd", "lok": lok, "hm": hm,
+                        "auto": auta.etykieta_pelna(ra), "pow": 0, "glosno": 0}})
             return
-        log.info("sledzenie %s: %s (zaparkowanych: %s)", b, w["kier"], w["zaparkowane"])
+        log.info("sledzenie %s: %s auto=%s (zaparkowanych: %s)", b, w["kier"], w.get("auto"), w["zaparkowane"])
         async with reolink.HA() as ha:
             await ha.cmd({
                 "type": "fire_event",
                 "event_type": "kamera_zdarzenie_popr",
                 "event_data": {
                     "b": b, "crop": w["crop"], "plik": w["plik"], "osoby": [], "n": 1, "rodzaj": "Pojazd", "lok": lok, "hm": hm,
-                    "ruch": RUCH_ETYKIETA[w["kier"]], "pow": 0, "glosno": 0,
+                    "ruch": RUCH_ETYKIETA[w["kier"]], "auto": auta.etykieta_pelna(w.get("auto")), "pow": 0, "glosno": 0,
                 },
             })
     except Exception:
@@ -647,6 +685,22 @@ async def analyze(request):
         return web.json_response({"ok": True, "start": lista})
     if str(d.get("b", "")) == "api":
         try:
+            dane = json.loads(str(d.get("plik", "{}")) or "{}")
+            if dane.get("cmd") == "auta":
+                return web.json_response({"ok": True, "auta": auta.lista()})
+            if dane.get("cmd") == "etykieta":
+                bb, cr, av = str(dane.get("b", "")), str(dane.get("crop", "")), str(dane.get("auto", ""))
+                if "/" in cr or not cr:
+                    return web.json_response({"ok": False, "blad": "zly plik"})
+                a = auta.etykieta(SNAP / cr, av)
+                if a is None:
+                    return web.json_response({"ok": False, "blad": "nieznane auto"})
+                nm = auta.etykieta_pelna(a) if av != auta.OBCE else "Obce auto"
+                async with reolink.HA() as ha:
+                    await ha.cmd({"type": "fire_event", "event_type": "kamera_zdarzenie_popr", "event_data": {
+                        "b": bb, "crop": "", "plik": "", "osoby": [], "n": 1, "rodzaj": "Pojazd", "lok": "", "hm": "",
+                        "auto": nm, "pow": 0, "glosno": 0}})
+                return web.json_response({"ok": True, "auto": nm, "auta": auta.lista()})
             return web.json_response(strefy.api(json.loads(str(d.get("plik", "{}")) or "{}")))
         except Exception as e:
             log.exception("api")
