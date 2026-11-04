@@ -73,3 +73,6 @@
 
 ## 0.7.2
 - Skan: znane auta liczone w calym kadrze, nieznane tylko na podjezdzie.
+
+## 0.7.3
+- Panel v32: przyciski nazwy auta tez na kartach i osi czasu.
