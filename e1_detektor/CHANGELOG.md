@@ -52,3 +52,6 @@
 - Zdarzenia z osobą: po chwili detektor przegląda klip (do 20 s) i wybiera klatkę, na której widać najwięcej osób razem. Zdjęcie grupowe podmienia kadr w historii i powiadomieniu (to samo `tag`, bez ponownego dźwięku).
 - Gdy w klatce jest co najmniej 2 osoby, powstają też osobne kadry każdej osoby; w arkuszu zdarzenia (panel v29) pojawiają się jako miniatury z zoomem i zapisem.
 - Pomocniczo: `b=grupa` w /analyze uruchamia tę analizę na istniejącym klipie (test).
+
+## 0.5.1
+- Analiza grupy z klipu: 1 klatka/s przez pierwsze 18 s (szybciej na Pi); `b=grupa` działa w tle i zapisuje wynik w logu.

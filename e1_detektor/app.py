@@ -371,7 +371,7 @@ def popraw_kadr_sync(clip, b, n0):
     tmpd = tempfile.mkdtemp(prefix="e1g_")
     try:
         subprocess.run(
-            ["ffmpeg", "-y", "-loglevel", "error", "-i", str(clip), "-t", "20", "-vf", "fps=1.5", "-q:v", "3", f"{tmpd}/g_%02d.jpg"],
+            ["ffmpeg", "-y", "-loglevel", "error", "-i", str(clip), "-t", "18", "-vf", "fps=1", "-q:v", "3", f"{tmpd}/g_%02d.jpg"],
             capture_output=True, text=True, timeout=120,
         )
         best = None
@@ -435,6 +435,23 @@ async def popraw_kadr(b, n0, rodzaj, lok, hm, powiadom, glosno):
         log.exception("popraw_kadr")
 
 
+async def grupa_test(lista):
+    """Test: uruchamia analize grupy na istniejacych klipach (po kolei, w tle); wynik w logu."""
+    loop = asyncio.get_running_loop()
+    for bb in lista:
+        clip = SNAP / f"e1_v_{bb}.mp4"
+        if not clip.exists():
+            log.info("grupa-test %s: brak klipu", bb)
+            continue
+        try:
+            t0 = time.time()
+            async with GLOCK:
+                w = await loop.run_in_executor(None, popraw_kadr_sync, clip, bb, 1)
+            log.info("grupa-test %s -> %s (%.0f s)", bb, w, time.time() - t0)
+        except Exception:
+            log.exception("grupa-test %s", bb)
+
+
 async def analyze(request):
     d = await request.json()
     if str(d.get("b", "")) == "api":
@@ -448,13 +465,9 @@ async def analyze(request):
         pliki = sorted(f.name for f in SNAP.glob("e1_*.jpg") if f.name.startswith("e1_" + pre) and "_crop_" not in f.name and "_best_" not in f.name)
         return web.json_response({"ok": True, "pliki": pliki})
     if str(d.get("b", "")) == "grupa":
-        bb = str(d.get("plik", "")).strip()
-        clip = SNAP / f"e1_v_{bb}.mp4"
-        if not bb or "/" in bb or not clip.exists():
-            return web.json_response({"ok": False, "blad": "brak klipu"})
-        async with GLOCK:
-            w = await asyncio.get_running_loop().run_in_executor(None, popraw_kadr_sync, clip, bb, 1)
-        return web.json_response({"ok": True, "wynik": w})
+        lista = [x.strip() for x in str(d.get("plik", "")).split(",") if x.strip() and "/" not in x]
+        asyncio.create_task(grupa_test(lista))
+        return web.json_response({"ok": True, "start": lista})
     b = str(d.get("b", "")).strip()
     plik = str(d.get("plik", "")).strip()
     rodzaj = RODZAJ.get(str(d.get("rodzaj", "osoba")).lower(), "osoba")
