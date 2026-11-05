@@ -901,6 +901,13 @@ async def analyze(request):
             dane = json.loads(str(d.get("plik", "{}")) or "{}")
             if dane.get("cmd") == "auta":
                 return web.json_response({"ok": True, "auta": auta.lista()})
+            if dane.get("cmd") == "parking_skan":
+                async with GLOCK:
+                    await asyncio.get_running_loop().run_in_executor(None, skan_sync)
+                return web.json_response({"ok": True})
+            if dane.get("cmd") == "parking":
+                hh = _hist_load()
+                return web.json_response({"ok": True, "teraz": time.time(), "sesje": hh["sesje"], "auta": auta.lista()})
             if dane.get("cmd") == "reset":
                 auta.reset(str(dane.get("auto", "")), dane.get("opis"))
                 return web.json_response({"ok": True, "auta": auta.lista()})
@@ -1072,8 +1079,94 @@ def usun_stare():
 CAM = os.environ.get("E1_CAM", "camera.e1_outdoor_wysoka_rozdzielczosc")
 
 
+HIST_PLIK = PARK_PLIK.with_name("park_hist.json")
+SKAN_MIN = 10          # co ile minut skan podjazdu
+ELIM_MIN = 0.45        # minimalny wynik, zeby przypisac auto "przez eliminacje"
+ELIM_OBCE = 0.05       # i nie gorszy niz 'obce' - tyle
+STAB_D = 0.05          # ten sam obiekt = srodek obrysu w tym promieniu (ulamek kadru)
+SES_MISS = 2           # tyle skanow z rzedu bez auta = odjechalo
+
+
+def _hist_load():
+    try:
+        h = json.load(open(HIST_PLIK))
+        h.setdefault("skany", [])
+        h.setdefault("sesje", [])
+        return h
+    except Exception:
+        return {"skany": [], "sesje": []}
+
+
+def _hist_save(h):
+    try:
+        tmp = HIST_PLIK.with_suffix(".tmp")
+        json.dump(h, open(tmp, "w"))
+        os.replace(tmp, HIST_PLIK)
+    except Exception:
+        log.exception("zapis historii parkingu")
+
+
+def _srodek(n):
+    return [(n[0] + n[2]) / 2, (n[1] + n[3]) / 2]
+
+
+def _blisko(c, lista):
+    return any(abs(c[0] - x[0]) < STAB_D and abs(c[1] - x[1]) < STAB_D for x in lista)
+
+
+def _eliminacja(items, poprzednie):
+    """Auta bez pewnego rozpoznania, ktore stoja w miejscu (byly w poprzednim skanie), dostaja wolne znane auto
+    o najlepszym wyniku (kazde auto najwyzej raz na skan). Rozwiazuje remisy typu Mazda 0.55 vs obce 0.52."""
+    znane = {x["id"]: x for x in auta.lista()}
+    wolne = set(znane) - {it["auto_id"] for it in items if it["auto_id"]}
+    kand = []
+    for it in items:
+        if it["auto_id"] or not it.get("f") or not _blisko(_srodek(it["n"]), poprzednie):
+            continue
+        w = auta.wyniki(it["f"])
+        ob = w.get(auta.OBCE, 0.0)
+        for k in wolne:
+            sc = w.get(k, 0.0)
+            if sc >= ELIM_MIN and sc >= ob - ELIM_OBCE:
+                kand.append((sc, it["i"], k))
+    uzyte_i, uzyte_k = set(), set()
+    for sc, i, k in sorted(kand, reverse=True):
+        if i in uzyte_i or k in uzyte_k:
+            continue
+        uzyte_i.add(i)
+        uzyte_k.add(k)
+        for it in items:
+            if it["i"] == i:
+                it["auto_id"] = k
+                it["nazwa"] = auta.etykieta_pelna(znane[k])
+                log.info("eliminacja: auto %s -> %s (wynik %.2f)", i, k, sc)
+
+
+def _sesje_aktualizuj(h, park, now):
+    ses = h["sesje"]
+    otw = {s["k"]: s for s in ses if s.get("do") is None}
+    widziane = set()
+    for p in park:
+        k = p.get("auto") or "?"
+        widziane.add(k)
+        s = otw.get(k)
+        if s is None:
+            s = {"k": k, "nazwa": p.get("nazwa") or "Nierozpoznane auto", "od": p["t"], "do": None, "ost": now, "miss": 0}
+            ses.append(s)
+        s["ost"], s["miss"] = now, 0
+        if p.get("nazwa"):
+            s["nazwa"] = p["nazwa"]
+    for k, s in otw.items():
+        if k in widziane:
+            continue
+        s["miss"] = s.get("miss", 0) + 1
+        if s["miss"] >= SES_MISS:
+            s["do"] = s["ost"] + 300
+    h["sesje"] = [s for s in ses if (s.get("do") or now) > now - 30 * 86400]
+
+
 def skan_sync():
-    """Zdjecie z kamery teraz -> auta (rozpoznane po obrysie) -> rejestr zaparkowanych."""
+    """Zdjecie z kamery teraz -> auta (rozpoznane po obrysie) -> rejestr zaparkowanych + historia postojow."""
     import urllib.request
     rq = urllib.request.Request(reolink.URL + "/api/camera_proxy/" + CAM, headers={"Authorization": "Bearer " + reolink.TOKEN})
     data = urllib.request.urlopen(rq, timeout=20).read()
@@ -1083,17 +1176,29 @@ def skan_sync():
     cfg = strefy.wczytaj("")
     pid = _podjazd_id(cfg)
     stare = _park_lista()
+    h = _hist_load()
+    now = time.time()
     ad = adnotuj_sync("skan", tmp)
+    items = ad["items"] if ad else []
+    poprzednie = [c for sk in h["skany"][-3:] for c in sk["c"]] + [_srodek(p["box"]) for p in stare if p.get("box")]
+    _eliminacja(items, poprzednie)
     park = []
-    for it in (ad["items"] if ad else []):
+    for it in items:
         n = it["n"]
         px = [n[0] * iw, n[1] * ih, n[2] * iw, n[3] * ih]
+        stoi = _blisko(_srodek(n), poprzednie)
         if not it["auto_id"] and pid and strefy.przypisz(px, iw, ih, cfg, "skan") != pid:
             continue  # nieznane auto poza podjazdem (np. na ulicy) nie liczy sie jako zaparkowane
-        t = time.time()
+        t = now
         if it["auto_id"]:
             t = next((p["t"] for p in stare if p.get("auto") == it["auto_id"]), t)
+        else:
+            t = next((p["t"] for p in stare if not p.get("auto") and p.get("box") and
+                      abs(_srodek(p["box"])[0] - _srodek(n)[0]) < STAB_D and abs(_srodek(p["box"])[1] - _srodek(n)[1]) < STAB_D), t)
         park.append({"t": t, "b": "skan", "box": n, "auto": it["auto_id"], "nazwa": it["nazwa"], "crop": it["crop"]})
+    h["skany"] = (h["skany"] + [{"t": now, "c": [_srodek(it["n"]) for it in items]}])[-8:]
+    _sesje_aktualizuj(h, park, now)
+    _hist_save(h)
     _park_zapisz(park)
     return park
 
@@ -1106,7 +1211,7 @@ async def skan_petla():
                 await asyncio.get_running_loop().run_in_executor(None, skan_sync)
         except Exception as e:
             log.warning("skan: %s", e)
-        await asyncio.sleep(20 * 60)
+        await asyncio.sleep(SKAN_MIN * 60)
 
 
 async def on_start(app):

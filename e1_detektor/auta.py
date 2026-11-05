@@ -216,6 +216,20 @@ def rozpoznaj_wektor(v, uczen=True):
     return {"id": best["id"], "nazwa": best["nazwa"], "opis": best.get("opis", ""), "score": round(bs, 2)}
 
 
+def wyniki(v):
+    """Podobienstwo wektora v do kazdego znanego auta (i 'obce') - bez efektow ubocznych. dict id -> wynik."""
+    d = _dane()
+    w = {}
+    ob = [_podobienstwo(v, p) for p in _probki(d, OBCE, v)]
+    if ob:
+        w[OBCE] = max(ob)
+    for x in d["auta"]:
+        pr = _probki(d, x["id"], v)
+        if pr:
+            w[x["id"]] = max(_podobienstwo(v, p) for p in pr)
+    return w
+
+
 def etykieta(path, auto_id):
     return etykieta_wektor(cecha(path), auto_id)
 

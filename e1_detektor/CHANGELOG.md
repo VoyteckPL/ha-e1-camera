@@ -180,3 +180,8 @@
 
 ## 0.14.3
 - Ping panelu przez callWS (bez czerwonego toastu przy chwilowym braku lacznosci).
+
+## 0.15.0
+- Zakladka Parking: os czasu postojow kazdego auta (24 h / 7 dni), status stoi/odjechalo.
+- Rozpoznawanie przez eliminacje: auto stojace w miejscu (widziane w poprzednim skanie), ktorego nie rozpoznano pewnie, dostaje wolne znane auto o najlepszym wyniku (kazde najwyzej raz). Naprawia Mazde i nocnego Seata.
+- Skan podjazdu co 10 min, historia postojow w /data/park_hist.json.

@@ -84,12 +84,20 @@ input[type=text]{font:inherit;padding:6px 8px;border-radius:10px;border:1px soli
 /* ---- uklad telefonu ---- */
 main{padding-bottom:calc(84px + env(safe-area-inset-bottom))}
 .tab{display:none;padding:10px 12px calc(90px + env(safe-area-inset-bottom))}
-body[data-tab=live] #tl,body[data-tab=ust] #ts{display:block}
-body[data-tab=live] header,body[data-tab=ust] header,body[data-tab=live] #m,body[data-tab=ust] #m,body[data-tab=live] #pk,body[data-tab=ust] #pk{display:none!important}
+body[data-tab=live] #tl,body[data-tab=ust] #ts,body[data-tab=park] #tp{display:block}
+body[data-tab=live] header,body[data-tab=ust] header,body[data-tab=park] header,body[data-tab=live] #m,body[data-tab=ust] #m,body[data-tab=park] #m,body[data-tab=live] #pk,body[data-tab=ust] #pk,body[data-tab=park] #pk{display:none!important}
+.pkc{background:var(--cd);border:1px solid var(--bd);border-radius:14px;padding:12px;margin:0 0 10px}
+.pkc h3{margin:0 0 2px;font-size:16px;display:flex;align-items:center;gap:8px}.pkc h3 i{width:12px;height:12px;border-radius:50%;display:inline-block}
+.pkc .st{font-size:13px;color:var(--mu);margin:0 0 8px}.pkc .st b{color:var(--tx)}
+.pkb{position:relative;height:22px;background:var(--bg);border:1px solid var(--bd);border-radius:6px;overflow:hidden}
+.pkb u{position:absolute;top:0;bottom:0;text-decoration:none;opacity:.9;min-width:2px}
+.pkx{position:relative;height:16px;margin-top:2px;font-size:10px;color:var(--mu)}.pkx span{position:absolute;transform:translateX(-50%);white-space:nowrap}
+.pkl{margin:8px 0 0;padding:0;list-style:none;font-size:13px}.pkl li{padding:3px 0;border-top:1px solid var(--bd);display:flex;justify-content:space-between;gap:8px}.pkl li span:last-child{color:var(--mu);white-space:nowrap}
+.pkr{display:flex;gap:8px;margin:0 0 10px}.pkr button{flex:1}
 #nav{position:fixed;left:0;right:0;bottom:0;z-index:12;display:flex;background:var(--cd);border-top:1px solid var(--bd);padding-bottom:env(safe-area-inset-bottom)}
 #nav button{flex:1;border:0;background:none;color:var(--mu);font:inherit;font-size:12px;padding:8px 4px 6px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;min-height:56px}
 #nav button i{font-style:normal;font-size:22px;line-height:1}
-body[data-tab=zd] #nav [data-tab=zd],body[data-tab=live] #nav [data-tab=live],body[data-tab=ust] #nav [data-tab=ust]{color:var(--ac);font-weight:600}
+body[data-tab=zd] #nav [data-tab=zd],body[data-tab=live] #nav [data-tab=live],body[data-tab=ust] #nav [data-tab=ust],body[data-tab=park] #nav [data-tab=park]{color:var(--ac);font-weight:600}
 .btn.big{padding:12px 14px;font-size:15px;border-radius:12px;width:100%}
 .btn{min-height:34px}.row{flex-wrap:wrap}.tc .row,.card .row{justify-content:flex-start}.tc .row .btn,.card .row .btn{flex:1 1 0;padding:7px 4px;white-space:nowrap;text-align:center}
 .chip{padding:7px 13px;font-size:14px}
@@ -110,13 +118,14 @@ body[data-tab=zd] #nav [data-tab=zd],body[data-tab=live] #nav [data-tab=live],bo
 <main id="m"></main>
 
 <section id="tl" class="tab"></section>
+<section id="tp" class="tab"></section>
 <section id="ts" class="tab">
 <div class="set"><h3>Strefy i powiadomienia</h3><p class="opis" style="margin:0">Rysowanie stref na zdjęciu oraz osobne powiadomienia dla osób, aut i zwierząt w każdej strefie.</p><button class="btn pri big" id="stb">Otwórz</button></div>
 <div class="set"><h3>Strojenie</h3><p class="opis" style="margin:0" id="tus">Zbieranie danych do uczenia czułości.</p><button class="btn big" id="tub">Pokaż dane</button></div>
 <div class="set"><h3>Historia</h3><p class="opis" style="margin:0">Usuwa wszystkie zdarzenia z panelu (pliki zostaną posprzątane automatycznie).</p><button class="btn big" id="clr">Wyczyść historię</button></div>
 <p class="opis" style="text-align:center">Panel kamery v45</p>
 </section>
-<nav id="nav"><button data-tab="zd"><i>🗂</i><span>Zdarzenia</span></button><button data-tab="live"><i>🎥</i><span>Na żywo</span></button><button data-tab="ust"><i>⚙️</i><span>Ustawienia</span></button></nav>
+<nav id="nav"><button data-tab="zd"><i>🗂</i><span>Zdarzenia</span></button><button data-tab="live"><i>🎥</i><span>Na żywo</span></button><button data-tab="park"><i>🅿️</i><span>Parking</span></button><button data-tab="ust"><i>⚙️</i><span>Ustawienia</span></button></nav>
 
 <div id="st" class="full"><h1 style="padding-top:8px"><span>Strefy i powiadomienia <span id="sv"></span> <small style="color:var(--mu);font-weight:400">v42</small></span><button class="btn" id="stx">Zamknij</button></h1>
 <p class="opis">Narysuj strefy na zdjęciu (punkty przyciągają się do innych stref i krawędzi), nazwij je i ustaw osobne powiadomienia. Wszystko poza strefami to „Poza strefami”. Zmiany zapisują się same.</p>
@@ -352,7 +361,7 @@ el.innerHTML=`<p class="opis">Tryb: <b>${esc(tr)}</b>. Uczenie startuje po kilku
 /* ---------- zakladki ---------- */
 let TAB='zd';
 try{TAB=localStorage.getItem('ktab')||'zd'}catch(e){}
-function setTab(t){TAB=t;document.body.dataset.tab=t;try{localStorage.setItem('ktab',t)}catch(e){}$('ttl').textContent=t=='live'?'Na żywo':t=='ust'?'Ustawienia':'Zdarzenia';scrollTo(0,0);if(t=='live'){lvBuild();lvSnap();lvSync()}if(t=='ust')tusSync();if(t=='zd'){last='';render()}}
+function setTab(t){TAB=t;document.body.dataset.tab=t;try{localStorage.setItem('ktab',t)}catch(e){}$('ttl').textContent=t=='live'?'Na żywo':t=='ust'?'Ustawienia':t=='park'?'Parking':'Zdarzenia';scrollTo(0,0);if(t=='park')tpLoad();if(t=='live'){lvBuild();lvSnap();lvSync()}if(t=='ust')tusSync();if(t=='zd'){last='';render()}}
 /* ---------- na zywo: podglad + suwaki + presety ---------- */
 const LVC='camera.e1_outdoor_wysoka_rozdzielczosc';
 const N='number.e1_outdoor_';
@@ -470,5 +479,28 @@ document.addEventListener('dblclick',e=>{const w=e.target.closest&&e.target.clos
 window.lvZoomReset=()=>{z=1;x=y=0;ap()};window.lvAp=ap;
 document.addEventListener('wheel',e=>{const w=e.target.closest&&e.target.closest('.lvw');if(!w)return;e.preventDefault();const b=box(),q=pt(e);zoomAt(Math.max(1,Math.min(8,z*(e.deltaY<0?1.2:1/1.2))),q.x-b.left,q.y-b.top)},{passive:false});
 })();
+
+/* ---- zakladka Parking: os czasu postojow aut ---- */
+let TPR=localStorage.getItem('tpr')||'24',TPD=null,TPT=0;
+const TPC={kia:'#2e9e5b',seat:'#2f6fe0',mazda:'#e8892b','?':'#8a8f98',obce:'#8a8f98'};
+function tpFmt(t,ref){const d=new Date(t*1000),hm=d.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'});const dd=new Date(ref*1000);return d.toDateString()==dd.toDateString()?hm:d.toLocaleDateString('pl-PL',{weekday:'short'})+' '+hm}
+function tpDur(s){s=Math.max(0,Math.round(s/60));const h=Math.floor(s/60),m=s%60;return h>=24?Math.floor(h/24)+' d '+(h%24)+' h':h?h+' h '+m+' min':m+' min'}
+async function tpLoad(){TPT=Date.now();try{TPD=await api({cmd:'parking'})}catch(e){}tpRender()}
+function tpRender(){const el=$('tp');if(!el)return;const D=TPD;
+let h=`<div class="pkr"><button class="btn${TPR=='24'?' pri':''}" data-tpr="24">24 godziny</button><button class="btn${TPR=='168'?' pri':''}" data-tpr="168">7 dni</button><button class="btn" id="tpscan">↻ Skanuj</button></div>`;
+if(!D){el.innerHTML=h+'<p class="opis">Ładuję…</p>';return}
+const now=D.teraz,R=+TPR*3600,t0=now-R;
+const ks=(D.auta||[]).map(a=>({k:a.id,n:a.nazwa+(a.opis?' ('+a.opis+')':'')}));
+if(D.sesje.some(s=>s.k=='?'))ks.push({k:'?',n:'Nierozpoznane auto'});
+for(const c of ks){const ss=D.sesje.filter(s=>s.k==c.k&&(s.do||now)>t0).sort((a,b)=>a.od-b.od);const op=ss.find(s=>!s.do);const col=TPC[c.k]||'#8a8f98';
+let st;if(op)st=`<b>stoi</b> od ${tpFmt(op.od,now)} · ${tpDur(now-op.od)}`;else{const l=D.sesje.filter(s=>s.k==c.k&&s.do).sort((a,b)=>b.do-a.do)[0];st=l?`nie ma · odjechało ${tpFmt(l.do,now)}`:'brak danych'}
+let tot=0;const seg=ss.map(s=>{const a=Math.max(s.od,t0),b=Math.min(s.do||now,now);tot+=Math.max(0,b-a);return `<u style="left:${(a-t0)/R*100}%;width:${Math.max(0,(b-a))/R*100}%;background:${col}"></u>`}).join('');
+let tk='';const step=R<=86400?6*3600:86400;const first=Math.ceil(t0/step)*step;for(let t=first;t<=now;t+=step){const d=new Date(t*1000);tk+=`<span style="left:${(t-t0)/R*100}%">${R<=86400?d.getHours()+':00':d.toLocaleDateString('pl-PL',{weekday:'short'})}</span>`}
+const li=ss.slice().reverse().slice(0,8).map(s=>`<li><span>${tpFmt(s.od,now)} → ${s.do?tpFmt(s.do,now):'teraz'}</span><span>${tpDur((s.do||now)-s.od)}</span></li>`).join('');
+h+=`<div class="pkc"><h3><i style="background:${col}"></i>${esc(c.n)}</h3><p class="st">${st}${ss.length?` · razem ${tpDur(tot)}`:''}</p><div class="pkb">${seg}</div><div class="pkx">${tk}</div>${li?`<ul class="pkl">${li}</ul>`:''}</div>`}
+h+='<p class="opis">Skan podjazdu co 10 min, więc godziny są z dokładnością do ok. 10 minut.</p>';
+el.innerHTML=h}
+document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('[data-tpr],#tpscan');if(!t)return;if(t.dataset.tpr){TPR=t.dataset.tpr;try{localStorage.setItem('tpr',TPR)}catch(_){}tpRender()}else{t.textContent='Skanuję…';api({cmd:'parking_skan'}).catch(()=>{}).then(()=>setTimeout(tpLoad,500))}});
+setInterval(()=>{if(TAB=='park'&&Date.now()-TPT>30000)tpLoad()},5000);
 setTab(TAB);render();loadCfg();loadAuta();chkUrl();setInterval(()=>{render();pkRender();chkUrl();if($('tu').classList.contains('on'))tuRender();lvSync();tusSync()},1500);setInterval(lvSnap,1200);setInterval(()=>{if(!AUTA.length)loadAuta()},8000);ping();setInterval(ping,10000);document.addEventListener('visibilitychange',ping);
 </script></body></html>
