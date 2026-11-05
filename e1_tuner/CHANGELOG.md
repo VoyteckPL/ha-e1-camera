@@ -24,3 +24,6 @@
 
 ## 0.5.1
 - GET /odczyt?c=Get... (tylko odczyt, diagnostyka ustawien kamery).
+
+## 0.5.2
+- Naprawa: brakowala funkcja ustaw() - auto-presety nie dzialaly (opis "liczę…").

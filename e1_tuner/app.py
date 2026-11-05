@@ -358,6 +358,17 @@ def ucz_offsety():
     json.dump(off, open(F_OFF, "w"))
 
 
+async def ustaw(eid, val):
+    """Ustaw encje number (REST service call). True gdy sie udalo."""
+    try:
+        async with _sess.post(f"{API}/services/{eid.split('.')[0]}/set_value", headers=H(),
+                              json={"entity_id": eid, "value": val}, timeout=aiohttp.ClientTimeout(total=20)) as r:
+            return r.status < 300
+    except Exception as ex:
+        log.warning("ustaw %s: %s", eid, ex)
+        return False
+
+
 def cele(f, w):
     off = _offsety()
     t = {}
