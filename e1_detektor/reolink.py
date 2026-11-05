@@ -166,6 +166,7 @@ async def reolink_wideo(b, kat, out: Path, media: Path, konwertuj, limit=300):
 # ---------------- bezposrednio z kamery po IP (karta SD) ----------------
 import json
 
+SD_ZWLOKA = 70  # s: tyle czeka sciezka sd, zanim zacznie pobierac sama (gdy HA nie dostarczylo wideo)
 _kam = {"base": "", "user": "", "pw": "", "token": "", "exp": 0.0}
 
 
@@ -242,6 +243,9 @@ async def sd_wideo(b, out: Path, media: Path, konwertuj, limit=240):
     pierwszy = None
     koniec_od = 0.0
     final_proba = False
+    # sd to teraz tylko zapas: rownolegle pobieranie spowalnialo sciezke przez HA (kamera oddaje ~0.5 MB/s)
+    while time.time() - start < SD_ZWLOKA and b not in GOTOWE:
+        await asyncio.sleep(2)
     try:
         async with aiohttp.ClientSession() as s:
             while time.time() - start < limit and b not in GOTOWE:
