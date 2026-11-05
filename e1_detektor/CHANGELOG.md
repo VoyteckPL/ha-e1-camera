@@ -196,3 +196,7 @@
 
 ## 0.16.1
 - api cmd sd_test (diagnostyka pobierania z SD po IP).
+
+## 0.16.2
+- Podglad w trakcie nagrywania: pobieranie z kamery startuje od razu po zdarzeniu (bez czekania na analize). Pomiar: czesciowe wideo ~32 s od zdarzenia, pelne ~46 s.
+- Po koncu nagrania pelny plik dostarcza zwykle sciezka przez HA (szybsza); sd bierze go sam po 25 s, gdyby HA nie dalo rady.

@@ -978,6 +978,7 @@ async def analyze(request):
     loop = asyncio.get_running_loop()
     t0 = time.time()
     zrodlo = "zdjecie"
+    asyncio.create_task(reolink.sd_wideo(b, SNAP / f"e1_v_{b}.mp4", MEDIA, przygotuj_wideo_sync))  # od razu: podglad w trakcie nagrywania
     async with LOCK:
         wynik, zapas = await loop.run_in_executor(None, analiza_sync, b, plik, rodzaj, granica, klasy)
         if wynik is None and wait > 0:
@@ -1027,7 +1028,6 @@ async def analyze(request):
         hm2 = (datetime.now(tz) if tz else datetime.now()).strftime("%H:%M")
         asyncio.create_task(sledz_pojazd(b, res["strefa"], hm2, granica, res.get("pelny", "")))
     asyncio.create_task(przygotuj_wideo(b))
-    asyncio.create_task(reolink.sd_wideo(b, SNAP / f"e1_v_{b}.mp4", MEDIA, przygotuj_wideo_sync))
     asyncio.create_task(reolink.reolink_wideo(b, rodzaj, SNAP / f"e1_v_{b}.mp4", MEDIA, przygotuj_wideo_sync))
     log.info("analiza %s %s -> %s", b, rodzaj, {k: res.get(k) for k in ("found", "conf", "strefa", "powiadom", "historia", "zrodlo", "czas")})
     return web.json_response(res)

@@ -240,6 +240,8 @@ async def sd_wideo(b, out: Path, media: Path, konwertuj, limit=240):
     pub = 0.0          # dlugosc ostatnio opublikowanego wideo
     sig_prev, stale = None, 0
     pierwszy = None
+    koniec_od = 0.0
+    final_proba = False
     try:
         async with aiohttp.ClientSession() as s:
             while time.time() - start < limit and b not in GOTOWE:
@@ -255,7 +257,16 @@ async def sd_wideo(b, out: Path, media: Path, konwertuj, limit=240):
                                      f["name"].split("/")[-1], f["fs"].time(), f["fe"].time(), f["size"], teraz.time().replace(microsecond=0))
                         sig = (f["fe"], f["size"])
                         stale = stale + 1 if sig == sig_prev else 0
-                        if sig != sig_prev:
+                        zakonczone = stale >= 3 and f["fe"] <= datetime.now() - timedelta(seconds=6)
+                        if zakonczone:
+                            # nagranie skonczone: pelny plik zwykle szybciej dostarcza sciezka przez HA; po 25 s bierzemy go sami
+                            koniec_od = koniec_od or time.time()
+                            if time.time() - koniec_od < 25:
+                                await asyncio.sleep(1.5)
+                                continue
+                        if sig != sig_prev or (zakonczone and not final_proba):
+                            if zakonczone:
+                                final_proba = True
                             sig_prev = sig
                             n = await sd_pobierz(s, f["name"], raw)
                             d = dlugosc(raw)
@@ -268,7 +279,7 @@ async def sd_wideo(b, out: Path, media: Path, konwertuj, limit=240):
                                     pub = d
                                     log.info("sd: %s opublikowano %.1f s", b, d)
                         # koniec: nic sie nie zmienia, plik skonczony
-                        if stale >= 2 and f["fe"] <= datetime.now() - timedelta(seconds=4) and pub >= (f["fe"] - f["fs"]).total_seconds() - 4:
+                        if zakonczone and final_proba and pub >= (f["fe"] - f["fs"]).total_seconds() - 4:
                             GOTOWE.add(b)
                             log.info("sd: %s KONIEC, pelne wideo %.1f s po %.1f s", b, pub, time.time() - start)
                             return True
