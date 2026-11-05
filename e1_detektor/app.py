@@ -13,7 +13,7 @@ import shutil
 import subprocess
 import tempfile
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import numpy as np
@@ -901,6 +901,19 @@ async def analyze(request):
             dane = json.loads(str(d.get("plik", "{}")) or "{}")
             if dane.get("cmd") == "auta":
                 return web.json_response({"ok": True, "auta": auta.lista()})
+            if dane.get("cmd") == "sd_test":
+                import aiohttp as _ah
+                async with _ah.ClientSession() as _s:
+                    _fl = await reolink.sd_szukaj(_s, datetime.now() - timedelta(minutes=int(dane.get("min", 60))), datetime.now())
+                    if not _fl:
+                        return web.json_response({"ok": True, "pliki": 0})
+                    _f = _fl[-1]
+                    _p = MEDIA / "e1_sdtest.mp4"
+                    _t0 = time.time()
+                    _n = await reolink.sd_pobierz(_s, _f["name"], _p)
+                    _d = reolink.dlugosc(_p)
+                    _p.unlink(missing_ok=True)
+                return web.json_response({"ok": True, "pliki": len(_fl), "plik": _f["name"], "bajty": _n, "sek": round(_d, 1), "czas_pobrania": round(time.time() - _t0, 1)})
             if dane.get("cmd") == "parking_skan":
                 async with GLOCK:
                     await asyncio.get_running_loop().run_in_executor(None, skan_sync)

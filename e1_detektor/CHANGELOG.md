@@ -193,3 +193,6 @@
 ## 0.16.0
 - Wideo bezposrednio z kamery po IP (Search/Download z karty SD), odpytywanie co 1.5 s; jesli kamera daje plik w trakcie nagrywania - publikuje coraz dluzsze wideo i dociaga reszte. Logi "sd:" mierza kiedy plik sie pojawia. Sciezka przez HA zostaje jako zapas.
 - Panel: dociaganie - po skonczeniu krotszej wersji sam przeladowuje dluzsza od tego samego miejsca.
+
+## 0.16.1
+- api cmd sd_test (diagnostyka pobierania z SD po IP).
