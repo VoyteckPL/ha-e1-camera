@@ -239,18 +239,23 @@ const fmt=t=>{t=Math.max(0,t|0);return (t/60|0)+':'+String(t%60).padStart(2,'0')
 function msg(t){const m=$('vm');m.style.display=t?'flex':'none';m.textContent=t||''}
 function showPhoto(m){if(m)PM=m;zv.pause();zv.style.display='none';zi.style.display='block';$('vc').className='';$('bph').className='btn'+(PM=='crop'?' pri':'');prRender();$('bfu').className='btn'+(PM=='full'?' pri':'');$('bvd').className='btn';msg('');clearTimeout(poll);rz();if(EV){const u=phUrl();if(zi.dataset.u!=u){zi.dataset.u=u;zi.onerror=()=>{zi.onerror=null;zi.src=SN+EV.plik};zi.src=u}}}
 function showVideo(){if(!EV)return;rz();document.querySelectorAll('#pr img.on').forEach(i=>i.classList.remove('on'));zi.style.display='none';zv.style.display='block';$('bph').className='btn';$('bfu').className='btn';$('bvd').className='btn pri';tryVideo()}
-function tryVideo(){clearTimeout(poll);const url=SN+'e1_v_'+EV.b+'.mp4';
-msg('Przygotowuję wideo…');
-fetch(url,{method:'HEAD',cache:'no-store'}).then(r=>{if(!r.ok)throw 0;
-if(zv.dataset.src!=url){zv.dataset.src=url;zv.src=url+'?t='+Date.now();zv.load()}
-msg('');$('vc').className='on'}).catch(()=>{if(zv.style.display!='none')poll=setTimeout(tryVideo,2500)})}
+let VW=null,VSIG='',VT0=0,VB='';
+function vHead(b){return fetch(SN+'e1_v_'+b+'.mp4',{method:'HEAD',cache:'no-store'}).then(r=>r.ok?((r.headers.get('content-length')||'')+'|'+(r.headers.get('last-modified')||'x')):null).catch(()=>null)}
+function vWatch(){clearTimeout(VW);if(!EV||!$('sh').classList.contains('on'))return;const b=EV.b;if(VB!=b){VB=b;VSIG='';VT0=Date.now()}
+vHead(b).then(sig=>{if(!EV||EV.b!=b)return;const bv=$('bvd'),vid=zv.style.display!='none';
+if(sig){const nw=sig!=VSIG,first=!VSIG;VSIG=sig;bv.textContent='Wideo ✓';
+if(vid&&(first||(nw&&(zv.paused||zv.currentTime<1)))){const url=SN+'e1_v_'+b+'.mp4';zv.dataset.src=url;zv.src=url+'?t='+Date.now();zv.load();msg('');$('vc').className='on'}}
+else{const s=Math.round((Date.now()-VT0)/1000),t=EV.czas?new Date(String(EV.czas).replace(' ','T')).getTime():NaN,old=!isNaN(t)&&Date.now()-t>600000;
+bv.textContent=old?'Wideo ✗':'Wideo ⏳';if(vid)msg(old?'Brak nagrania z Reolinka dla tego zdarzenia':'Czekam na nagranie z Reolinka… '+s+' s (zwykle ok. 40 s od zdarzenia)')}
+VW=setTimeout(vWatch,sig?5000:1500)})}
+function tryVideo(){clearTimeout(VW);VSIG='';vWatch()}
 function openEv(b){const e=ALL.find(x=>x.b==b);
 EV=e||{b:b,rodzaj:'',czas:'',plik:b+'.jpg'};
 $('sht').textContent=e?(NAZ[e.rodzaj]||e.rodzaj):'Zdarzenie';
 $('shs').textContent=e?(e.czas.slice(0,16)+' · '+(e.lok||'')+(+e.conf>0?' · '+Math.round(e.conf*100)+'%':'')):'Analiza w toku…';
 zv.pause();zv.removeAttribute('src');delete zv.dataset.src;
 PM=(e&&(e.pojazdy||[]).length)?'full':'crop';delete zi.dataset.u;$('bfu').hidden=!(e&&e.crop&&e.plik&&e.crop!=e.plik);
-$('sh').className='on';showPhoto();auRender()}
+$('sh').className='on';showPhoto();auRender();VB='';VSIG='';vWatch()}
 async function saveCur(){if(!EV)return;const vid=zv.style.display!='none';
 if(vid&&!zv.dataset.src){msg('Wideo jeszcze się przygotowuje…');setTimeout(()=>{if(zv.dataset.src)msg('')},1500);return}
 const url=vid?zv.dataset.src:phUrl();const nm='kamera_'+EV.b.replace(/^e1_/,'')+(vid?'.mp4':PM=='full'?'_kadr.jpg':PM.startsWith('os')?'_osoba'+(+PM.slice(2)+1)+'.jpg':'.jpg');

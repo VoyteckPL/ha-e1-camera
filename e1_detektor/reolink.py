@@ -134,7 +134,7 @@ async def reolink_wideo(b, kat, out: Path, media: Path, konwertuj, limit=300):
         return False
     tz = strefy._tz()
     start = time.time()
-    await asyncio.sleep(10)
+    await asyncio.sleep(5)
     while time.time() - start < limit:
         try:
             async with HA() as ha:
@@ -158,6 +158,6 @@ async def reolink_wideo(b, kat, out: Path, media: Path, konwertuj, limit=300):
                     raw.unlink(missing_ok=True)
         except Exception as e:
             log.warning("reolink %s: %s", b, e)
-        await asyncio.sleep(10)
+        await asyncio.sleep(3)
     log.warning("brak nagrania reolink dla %s", b)
     return False
