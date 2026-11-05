@@ -27,3 +27,6 @@
 
 ## 0.5.2
 - Naprawa: brakowala funkcja ustaw() - auto-presety nie dzialaly (opis "liczę…").
+
+## 0.5.3
+- GET /szukaj?min=N - lista nagran z karty SD kamery (odczyt).

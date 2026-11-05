@@ -525,6 +525,20 @@ async def cam_odczyt(request):
         return web.json_response({"ok": False, "blad": str(e)})
 
 
+async def cam_szukaj(request):
+    """GET /szukaj?min=15 - lista nagran na karcie SD z ostatnich N minut (tylko odczyt)."""
+    try:
+        n = min(240, max(1, int(request.query.get("min", 15))))
+        k = time.time()
+        a, b = time.localtime(k - n * 60), time.localtime(k)
+        tm = lambda t: {"year": t.tm_year, "mon": t.tm_mon, "day": t.tm_mday, "hour": t.tm_hour, "min": t.tm_min, "sec": t.tm_sec}
+        prm = {"Search": {"channel": 0, "onlyStatus": 0, "streamType": request.query.get("st", "main"), "StartTime": tm(a), "EndTime": tm(b)}}
+        j = await cam_cmd("Search", param=prm, action=1)
+        return web.json_response({"ok": True, "teraz": time.strftime("%H:%M:%S"), "odp": j})
+    except Exception as e:
+        return web.json_response({"ok": False, "blad": str(e)})
+
+
 async def eksport(request):
     n = min(5000, int(request.query.get("n", 500)))
     plik = {"probki": F_PROBKI, "zdarzenia": F_ZDARZ, "etykiety": F_ETYK}.get(request.query.get("co", "probki"), F_PROBKI)
@@ -540,7 +554,7 @@ async def on_start(app):
 
 def main():
     app = web.Application()
-    app.add_routes([web.get("/status", status), web.get("/dane", eksport), web.get("/isp", isp_api), web.get("/odczyt", cam_odczyt), web.post("/isp", isp_api)])
+    app.add_routes([web.get("/status", status), web.get("/dane", eksport), web.get("/isp", isp_api), web.get("/odczyt", cam_odczyt), web.get("/szukaj", cam_szukaj), web.post("/isp", isp_api)])
     app.on_startup.append(on_start)
     web.run_app(app, host="0.0.0.0", port=8100)
 
