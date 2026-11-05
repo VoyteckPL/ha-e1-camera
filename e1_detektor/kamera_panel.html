@@ -244,11 +244,12 @@ function vHead(b){return fetch(SN+'e1_v_'+b+'.mp4',{method:'HEAD',cache:'no-stor
 function vWatch(){clearTimeout(VW);if(!EV||!$('sh').classList.contains('on'))return;const b=EV.b;if(VB!=b){VB=b;VSIG='';VT0=Date.now()}
 vHead(b).then(sig=>{if(!EV||EV.b!=b)return;const bv=$('bvd'),vid=zv.style.display!='none';
 if(sig){const nw=sig!=VSIG,first=!VSIG;VSIG=sig;bv.textContent='Wideo ✓';
-if(vid&&(first||(nw&&(zv.paused||zv.currentTime<1)))){const url=SN+'e1_v_'+b+'.mp4';zv.dataset.src=url;zv.src=url+'?t='+Date.now();zv.load();msg('');$('vc').className='on'}}
+if(vid&&(first||(nw&&(zv.paused||zv.currentTime<1||zv.ended||(isFinite(zv.duration)&&zv.duration-zv.currentTime<4))))){const url=SN+'e1_v_'+b+'.mp4',ct=first?0:zv.currentTime,pl=first||!zv.paused||zv.ended;zv.dataset.src=url;zv.src=url+'?t='+Date.now();zv.load();if(ct>0)zv.addEventListener('loadedmetadata',()=>{try{zv.currentTime=Math.min(ct,Math.max(0,zv.duration-0.2))}catch(e){}if(pl)zv.play().catch(()=>{})},{once:true});msg('');$('vc').className='on'}}
 else{const s=Math.round((Date.now()-VT0)/1000),t=EV.czas?new Date(String(EV.czas).replace(' ','T')).getTime():NaN,old=!isNaN(t)&&Date.now()-t>600000;
 bv.textContent=old?'Wideo ✗':'Wideo ⏳';if(vid)msg(old?'Brak nagrania z Reolinka dla tego zdarzenia':'Czekam na nagranie z Reolinka… '+s+' s (zwykle ok. 40 s od zdarzenia)')}
-VW=setTimeout(vWatch,sig?5000:1500)})}
+VW=setTimeout(vWatch,vid?1500:sig?5000:1500)})}
 function tryVideo(){clearTimeout(VW);VSIG='';vWatch()}
+zv.addEventListener('ended',()=>{if(EV)vWatch()});
 function openEv(b){const e=ALL.find(x=>x.b==b);
 EV=e||{b:b,rodzaj:'',czas:'',plik:b+'.jpg'};
 $('sht').textContent=e?(NAZ[e.rodzaj]||e.rodzaj):'Zdarzenie';

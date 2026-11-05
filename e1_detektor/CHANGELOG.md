@@ -189,3 +189,7 @@
 ## 0.15.1
 - Wideo z Reolinka: sprawdzanie co 3 s (bylo 10 s), start po 5 s (bylo 10 s).
 - Panel: po otwarciu zdarzenia stale sprawdza czy wideo jest gotowe - przycisk Wideo pokazuje stan (⏳/✓/✗), wideo laduje sie samo, licznik oczekiwania, brak zamrozenia przy podmianie pliku.
+
+## 0.16.0
+- Wideo bezposrednio z kamery po IP (Search/Download z karty SD), odpytywanie co 1.5 s; jesli kamera daje plik w trakcie nagrywania - publikuje coraz dluzsze wideo i dociaga reszte. Logi "sd:" mierza kiedy plik sie pojawia. Sciezka przez HA zostaje jako zapas.
+- Panel: dociaganie - po skonczeniu krotszej wersji sam przeladowuje dluzsza od tego samego miejsca.
