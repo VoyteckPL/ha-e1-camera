@@ -908,7 +908,7 @@ async def analyze(request):
                 _op = dane.get("op")
                 if _op == "grep":
                     _w = []
-                    for _p in list(_R.glob("*.yaml")) + list(_R.glob("packages/**/*.yaml")) + list(_R.glob("templates/**/*.yaml")) + list(_R.glob("integrations/**/*.yaml")):
+                    for _p in [x for x in _R.rglob("*.yaml") if not any(t in x.parts for t in ("custom_components", ".storage", "www", "zigbee2mqtt", "esphome", ".git", "deps", "blueprints"))]:
                         try:
                             for _i, _l in enumerate(_p.read_text().splitlines(), 1):
                                 if _re.search(dane.get("re", ""), _l):
