@@ -901,35 +901,6 @@ async def analyze(request):
             dane = json.loads(str(d.get("plik", "{}")) or "{}")
             if dane.get("cmd") == "auta":
                 return web.json_response({"ok": True, "auta": auta.lista()})
-            if dane.get("cmd") == "yaml_tmp":
-                # TYMCZASOWE: grep/odczyt/podmiana w plikach YAML konfiguracji (do usuniecia)
-                import re as _re
-                _R = Path("/ha_config")
-                _op = dane.get("op")
-                if _op == "grep":
-                    _w = []
-                    for _p in [x for x in _R.rglob("*.yaml") if not any(t in x.parts for t in ("custom_components", ".storage", "www", "zigbee2mqtt", "esphome", ".git", "deps", "blueprints"))]:
-                        try:
-                            for _i, _l in enumerate(_p.read_text().splitlines(), 1):
-                                if _re.search(dane.get("re", ""), _l):
-                                    _w.append(f"{_p.relative_to(_R)}:{_i}:{_l[:200]}")
-                        except Exception:
-                            pass
-                    return web.json_response({"ok": True, "w": _w[:60]})
-                _p = (_R / str(dane.get("f", ""))).resolve()
-                if _R not in _p.parents or _p.suffix != ".yaml":
-                    return web.json_response({"ok": False, "e": "sciezka"})
-                if _op == "read":
-                    _t = _p.read_text().splitlines()
-                    _a, _b = int(dane.get("od", 1)), int(dane.get("do", 80))
-                    return web.json_response({"ok": True, "t": [f"{i}:{l}" for i, l in enumerate(_t[_a - 1:_b], _a)]})
-                if _op == "replace":
-                    _t = _p.read_text()
-                    if _t.count(dane["old"]) != 1:
-                        return web.json_response({"ok": False, "e": "count=%d" % _t.count(dane["old"])})
-                    (_p.parent / (_p.name + ".bak")).write_text(_t)
-                    _p.write_text(_t.replace(dane["old"], dane["new"]))
-                    return web.json_response({"ok": True})
             if dane.get("cmd") == "sd_test":
                 import aiohttp as _ah
                 async with _ah.ClientSession() as _s:
