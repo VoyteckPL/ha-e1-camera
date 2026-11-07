@@ -100,7 +100,7 @@ async def petla(pre="m"):
         else:
             kodek = ["-map", "0:v:0", "-c:v", "copy", "-an"]
         cmd = ["ffmpeg", "-nostdin", "-loglevel", "warning", "-rtsp_transport", "tcp", "-i", url, *kodek,
-               "-f", "segment", "-segment_time", str(SEG), "-segment_format", "mpegts", "-reset_timestamps", "1",
+               "-f", "segment", "-segment_time", str(SEG), "-segment_format", "mpegts",
                "-strftime", "1", str(DIR / (pre + "_%s.ts"))]
         logf = Path(tempfile.gettempdir()) / f"bufor_ffmpeg_{pre}.log"
         p = None
@@ -154,21 +154,27 @@ def _lista(kawalki, plik: Path):
     plik.write_text("".join(f"file '{p}'\n" for _, _, p in kawalki))
 
 
+def _scal(kawalki):
+    """Kawalki mpegts mozna po prostu skleic bajtami (znaczniki czasu ciagle). Duzo szybciej niz demuxer concat (probe kazdego pliku)."""
+    buf = bytearray()
+    for _, _, p in kawalki:
+        try:
+            buf += p.read_bytes()
+        except OSError:
+            pass
+    return bytes(buf)
+
+
 def zloz(kawalki, out: Path):
     tmp = out.with_suffix(".tmp.mp4")
-    lst = out.with_suffix(".lst")
-    _lista(kawalki, lst)
-    try:
-        r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", str(lst),
-                            "-c", "copy", "-movflags", "+faststart", str(tmp)], capture_output=True, text=True, timeout=120)
-        if r.returncode != 0:
-            log.error("bufor zloz: %s", r.stderr[-300:])
-            tmp.unlink(missing_ok=True)
-            return False
-        tmp.replace(out)
-        return True
-    finally:
-        lst.unlink(missing_ok=True)
+    r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", "pipe:0", "-c", "copy", "-movflags", "+faststart", str(tmp)],
+                       input=_scal(kawalki), capture_output=True, timeout=120)
+    if r.returncode != 0:
+        log.error("bufor zloz: %s", r.stderr[-300:].decode(errors="ignore"))
+        tmp.unlink(missing_ok=True)
+        return False
+    tmp.replace(out)
+    return True
 
 
 async def klip(b, out: Path, t0=None):
@@ -208,14 +214,12 @@ def klatki(od, do, fps, tmpd, pre="m"):
     k = okno(od, do, pre)
     if not k:
         return []
-    lst = Path(tmpd) / "l.lst"
-    _lista(k, lst)
     ss = max(0.0, od - k[0][0])
-    r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", str(lst),
+    r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", "pipe:0",
                         "-ss", f"{ss:.2f}", "-t", f"{do - od:.2f}", "-vf", f"fps={fps}", "-q:v", "4",
-                        str(Path(tmpd) / (pre + "_%03d.jpg"))], capture_output=True, text=True, timeout=120)
+                        str(Path(tmpd) / (pre + "_%03d.jpg"))], input=_scal(k), capture_output=True, timeout=120)
     if r.returncode != 0:
-        log.error("bufor klatki: %s", r.stderr[-300:])
+        log.error("bufor klatki: %s", r.stderr[-300:].decode(errors="ignore"))
     return sorted(Path(tmpd).glob(pre + "_*.jpg"))
 
 

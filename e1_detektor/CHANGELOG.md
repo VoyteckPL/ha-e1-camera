@@ -223,3 +223,6 @@
 
 ## 0.17.5
 - Polecenie `zloz_bench` (pomiar składania klipu na Pi).
+
+## 0.17.6
+- Składanie klipu i klatek: sklejanie kawałków bajtami zamiast demuxera concat (z ~7 s do ~1 s na Pi); kawałki z ciągłymi znacznikami czasu.
