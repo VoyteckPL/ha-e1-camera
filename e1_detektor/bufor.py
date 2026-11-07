@@ -23,22 +23,23 @@ KEEP_S = 45 * 60  # s: tyle trzymamy
 PRE = 6.0        # s przed zdarzeniem w klipie
 POST = 28.0      # s po poczatku zdarzenia w klipie
 RTSP_PORT = 554
-RE = re.compile(r"m_(\d+)\.ts$")
+RE = re.compile(r"[ms]_(\d+)\.ts$")
 _stan = {"start": 0.0, "restarty": 0, "blad": ""}
 
 
-def _url():
+def _url(pre="m"):
     k = reolink._kam
     if not k["base"] and not reolink._kam_dane():
         return None
     host = urlparse(k["base"]).hostname
-    return f"rtsp://{quote(k['user'], safe='')}:{quote(k['pw'], safe='')}@{host}:{RTSP_PORT}/Preview_01_main"
+    st = "main" if pre == "m" else "sub"
+    return f"rtsp://{quote(k['user'], safe='')}:{quote(k['pw'], safe='')}@{host}:{RTSP_PORT}/Preview_01_{st}"
 
 
-def segmenty():
+def segmenty(pre="m"):
     out = []
     try:
-        for p in DIR.glob("m_*.ts"):
+        for p in DIR.glob(pre + "_*.ts"):
             m = RE.search(p.name)
             if m:
                 out.append((int(m.group(1)), p))
@@ -48,9 +49,9 @@ def segmenty():
     return out
 
 
-def okno(od, do):
+def okno(od, do, pre="m"):
     """Zamkniete kawalki nachodzace na [od, do]: lista (poczatek, koniec, sciezka). Ostatni (otwarty) pomijamy."""
-    s = segmenty()
+    s = segmenty(pre)
     out = []
     for i in range(len(s) - 1):
         t, p = s[i]
@@ -60,49 +61,54 @@ def okno(od, do):
     return out
 
 
-def gotowy():
-    s = segmenty()
+def gotowy(pre="m"):
+    s = segmenty(pre)
     return len(s) >= 3 and time.time() - s[-1][0] < 15
 
 
 def sprzataj():
     gr = time.time() - KEEP_S
-    for t, p in segmenty():
-        if t < gr:
-            p.unlink(missing_ok=True)
+    for pre in ("m", "s"):
+        for t, p in segmenty(pre):
+            if t < gr:
+                p.unlink(missing_ok=True)
 
 
 def status():
-    s = segmenty()
-    sz = 0
-    for _, p in s:
-        try:
-            sz += p.stat().st_size
-        except OSError:
-            pass
-    return {"kawalki": len(s), "od": s[0][0] if s else 0, "do": s[-1][0] if s else 0, "mb": round(sz / 1e6, 1),
-            "restarty": _stan["restarty"], "blad": _stan["blad"], "teraz": round(time.time()),
-            "tz": time.tzname[0], "gotowy": gotowy()}
+    out = {"restarty": _stan["restarty"], "blad": _stan["blad"], "teraz": round(time.time()), "tz": time.tzname[0]}
+    for pre in ("m", "s"):
+        s = segmenty(pre)
+        sz = 0
+        for _, p in s:
+            try:
+                sz += p.stat().st_size
+            except OSError:
+                pass
+        out[pre] = {"kawalki": len(s), "od": s[0][0] if s else 0, "do": s[-1][0] if s else 0, "mb": round(sz / 1e6, 1), "gotowy": gotowy(pre)}
+    return out
 
 
-async def petla():
+async def petla(pre="m"):
     DIR.mkdir(parents=True, exist_ok=True)
     while True:
-        url = _url()
+        url = _url(pre)
         if not url:
             await asyncio.sleep(30)
             continue
-        cmd = ["ffmpeg", "-nostdin", "-loglevel", "warning", "-rtsp_transport", "tcp", "-i", url,
-               "-map", "0:v:0", "-map", "0:a:0?", "-c:v", "copy", "-c:a", "aac", "-b:a", "64k",
+        if pre == "m":
+            kodek = ["-map", "0:v:0", "-map", "0:a:0?", "-c:v", "copy", "-c:a", "aac", "-b:a", "64k"]
+        else:
+            kodek = ["-map", "0:v:0", "-c:v", "copy", "-an"]
+        cmd = ["ffmpeg", "-nostdin", "-loglevel", "warning", "-rtsp_transport", "tcp", "-i", url, *kodek,
                "-f", "segment", "-segment_time", str(SEG), "-segment_format", "mpegts", "-reset_timestamps", "1",
-               "-strftime", "1", str(DIR / "m_%s.ts")]
-        logf = Path(tempfile.gettempdir()) / "bufor_ffmpeg.log"
+               "-strftime", "1", str(DIR / (pre + "_%s.ts"))]
+        logf = Path(tempfile.gettempdir()) / f"bufor_ffmpeg_{pre}.log"
         p = None
+        start = time.time()
         try:
             with open(logf, "wb") as lf:
                 p = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.DEVNULL, stderr=lf)
-                _stan["start"] = time.time()
-                log.info("bufor: ffmpeg wystartowal")
+                log.info("bufor[%s]: ffmpeg wystartowal", pre)
                 tsp = 0.0
                 while True:
                     try:
@@ -110,18 +116,18 @@ async def petla():
                         break
                     except asyncio.TimeoutError:
                         pass
-                    if time.time() - tsp > 60:
+                    if pre == "m" and time.time() - tsp > 60:
                         tsp = time.time()
                         sprzataj()
-                    s = segmenty()
-                    ost = max(s[-1][0], _stan["start"]) if s else _stan["start"]
+                    s = segmenty(pre)
+                    ost = max(s[-1][0], start) if s else start
                     try:
                         if s:
                             ost = max(ost, s[-1][1].stat().st_mtime)
                     except OSError:
                         pass
                     if time.time() - ost > 25:
-                        log.warning("bufor: brak nowych kawalkow od 25 s - restart ffmpeg")
+                        log.warning("bufor[%s]: brak nowych kawalkow od 25 s - restart ffmpeg", pre)
                         p.kill()
                         await p.wait()
                         break
@@ -140,7 +146,7 @@ async def petla():
             tail = ""
         _stan["restarty"] += 1
         _stan["blad"] = tail.strip()[-100:]
-        log.warning("bufor: ffmpeg zakonczony (%s), ponawiam za 5 s: %s", p.returncode if p else "?", tail.strip()[-200:])
+        log.warning("bufor[%s]: ffmpeg zakonczony (%s), ponawiam za 5 s: %s", pre, p.returncode if p else "?", tail.strip()[-200:])
         await asyncio.sleep(5)
 
 
@@ -196,9 +202,9 @@ async def klip(b, out: Path, t0=None):
     return False
 
 
-def klatki(od, do, fps, tmpd):
-    """Wyciaga klatki z okna [od, do] (pelna rozdzielczosc, jpg). Zwraca liste sciezek."""
-    k = okno(od, do)
+def klatki(od, do, fps, tmpd, pre="m"):
+    """Wyciaga klatki z okna [od, do] (jpg). Zwraca liste sciezek; klatka k ~ czas od + k/fps."""
+    k = okno(od, do, pre)
     if not k:
         return []
     lst = Path(tmpd) / "l.lst"
@@ -206,10 +212,25 @@ def klatki(od, do, fps, tmpd):
     ss = max(0.0, od - k[0][0])
     r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", str(lst),
                         "-ss", f"{ss:.2f}", "-t", f"{do - od:.2f}", "-vf", f"fps={fps}", "-q:v", "4",
-                        str(Path(tmpd) / "b_%03d.jpg")], capture_output=True, text=True, timeout=120)
+                        str(Path(tmpd) / (pre + "_%03d.jpg"))], capture_output=True, text=True, timeout=120)
     if r.returncode != 0:
         log.error("bufor klatki: %s", r.stderr[-300:])
-    return sorted(Path(tmpd).glob("b_*.jpg"))
+    return sorted(Path(tmpd).glob(pre + "_*.jpg"))
+
+
+def klatka_pelna(t, out: Path):
+    """Jedna klatka w pelnej rozdzielczosci z glownego strumienia w chwili t (epoch). True, gdy sie udalo."""
+    s = segmenty("m")
+    for i in range(len(s) - 1, -1, -1):
+        if s[i][0] <= t:
+            off = max(0.0, t - s[i][0])
+            for p in (s[i][1], ) if off < 7 else ():
+                r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(p), "-ss", f"{off:.2f}", "-frames:v", "1",
+                                    "-q:v", "3", str(out)], capture_output=True, text=True, timeout=60)
+                if r.returncode == 0 and out.exists() and out.stat().st_size > 1000:
+                    return True
+            return False
+    return False
 
 
 async def czekaj(do, limit=10.0):

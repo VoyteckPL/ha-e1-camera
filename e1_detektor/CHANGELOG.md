@@ -214,3 +214,6 @@
 
 ## 0.17.2
 - Detekcja obsluguje modele o innym rozmiarze wejscia (yolox_tiny 416) - do szybkiego przegladania klatek z bufora.
+
+## 0.17.3
+- Bufor: drugi, lekki strumień (sub) do szybkiego szukania najlepszej chwili; pełna klatka i klip nadal z głównego strumienia.

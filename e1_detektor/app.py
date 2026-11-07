@@ -401,7 +401,7 @@ def _cel_drogi(cfg):
 
 
 def najlepsza_klatka_sync(b, klasy, granica, t0=None):
-    """Z bufora (okno wokol zdarzenia) wybiera klatke, na ktorej pojazd jest najblizej srodka drogi i caly w kadrze."""
+    """Szuka na lekkim strumieniu (bufor 's') chwili, gdy pojazd jest najblizej srodka drogi, a pelna klatke bierze z glownego."""
     if t0 is None:
         t = reolink.czas_zdarzenia(b)
         if t is None:
@@ -409,15 +409,17 @@ def najlepsza_klatka_sync(b, klasy, granica, t0=None):
         t0 = time.mktime(t.timetuple())
     tmpd = tempfile.mkdtemp(prefix="e1b_")
     ts = time.time()
+    FPS = 3
     try:
+        od = t0 - 1.5
         do = min(t0 + 5.5, time.time() - 3.0)
-        files = bufor.klatki(t0 - 1.5, do, 2, tmpd)
+        files = bufor.klatki(od, do, FPS, tmpd, pre="s")
         if not files:
             return None
         cx, cy = _cel_drogi(strefy.wczytaj(granica))
         scan = SESS_T or SESS
         kand = []
-        for f in files:
+        for k, f in enumerate(files):
             img = Image.open(f)
             img.load()
             iw, ih = img.size
@@ -425,35 +427,38 @@ def najlepsza_klatka_sync(b, klasy, granica, t0=None):
             if klasy == KLASY["pojazd"]:
                 boxes = ruchome(boxes, iw, ih, b)
             for bx in boxes:
-                mx, my = (bx[0] + bx[2]) / 2 / iw, (bx[1] + bx[3]) / 2 / ih
+                n = _norm(bx, iw, ih)
+                mx, my = (n[0] + n[2]) / 2, (n[1] + n[3]) / 2
                 dist = math.hypot(mx - cx, (my - cy) * 0.7)
-                kand.append((box_score(bx, iw, ih) * max(0.15, 1.0 - dist * 1.4), f, bx))
-        log.info("bufor: %s skan %d klatek (%.1f s), kandydatow %d", b, len(files), time.time() - ts, len(kand))
+                kand.append((box_score(bx, iw, ih) * max(0.15, 1.0 - dist * 1.4), od + k / FPS, n, bx[4]))
+        log.info("bufor: %s skan %d klatek lekkiego strumienia (%.1f s), kandydatow %d", b, len(files), time.time() - ts, len(kand))
         if not kand:
             return None
         kand.sort(key=lambda x: -x[0])
-        # dopracowanie: pelny model na najlepszej klatce (ewentualnie 2. klatka, gdy pelny model nic nie znajdzie)
-        for _, f, _bx in kand[:2]:
-            img = Image.open(f)
-            img.load()
-            iw, ih = img.size
-            boxes = detect(img, klasy, MIN_CONF)
-            surowe = boxes
-            if klasy == KLASY["pojazd"]:
-                boxes = ruchome(boxes, iw, ih, b)
-            if not boxes:
-                continue
-            def ocena(bx):
-                mx, my = (bx[0] + bx[2]) / 2 / iw, (bx[1] + bx[3]) / 2 / ih
-                return box_score(bx, iw, ih) * max(0.15, 1.0 - math.hypot(mx - cx, (my - cy) * 0.7) * 1.4)
-            wybrany = max(boxes, key=ocena)
-            if klasy == KLASY["pojazd"]:
-                zapamietaj(surowe, iw, ih, b)
-            nazwa = f"e1_best_{b}.jpg"
-            img.convert("RGB").save(SNAP / nazwa, "JPEG", quality=90)
-            log.info("bufor: %s najlepsza klatka z %d (%.1f s), conf %.2f", b, len(files), time.time() - ts, wybrany[4])
-            return img, [wybrany], nazwa
-        return None
+        _, tc, n, conf = kand[0]
+        pf = SNAP / f"e1_best_{b}.jpg"
+        if not bufor.klatka_pelna(tc, pf):
+            return None
+        img = Image.open(pf)
+        img.load()
+        iw, ih = img.size
+        wybrany = None
+        # pelny model na pelnej klatce: ramka najblizsza tej z lekkiego strumienia
+        boxes = detect(img, klasy, MIN_CONF)
+        surowe = boxes
+        if klasy == KLASY["pojazd"]:
+            boxes = ruchome(boxes, iw, ih, b)
+        sx = [n[0] * iw, n[1] * ih, n[2] * iw, n[3] * ih]
+        if boxes:
+            kb = max(boxes, key=lambda x: _iou(x[:4], sx))
+            if _iou(kb[:4], sx) > 0.25:
+                wybrany = kb
+        if wybrany is None:
+            wybrany = (*sx, conf)  # zapas: ramka z lekkiego strumienia przeskalowana na pelna klatke
+        if klasy == KLASY["pojazd"]:
+            zapamietaj(surowe or [wybrany], iw, ih, b)
+        log.info("bufor: %s najlepsza klatka @%.1f s po zdarzeniu, razem %.1f s, conf %.2f", b, tc - t0, time.time() - ts, wybrany[4])
+        return img, [wybrany], pf.name
     finally:
         shutil.rmtree(tmpd, ignore_errors=True)
 
@@ -1100,7 +1105,7 @@ async def analyze(request):
     asyncio.create_task(bufor.klip(b, SNAP / f"e1_v_{b}.mp4"))  # klip z bufora: od razu, dokleja sie w trakcie
     async with LOCK:
         wynik = zapas = None
-        if rodzaj == "pojazd" and bufor.gotowy():
+        if rodzaj == "pojazd" and bufor.gotowy("m") and bufor.gotowy("s"):
             tz0 = reolink.czas_zdarzenia(b)
             if tz0:
                 await bufor.czekaj(min(time.mktime(tz0.timetuple()) + 4.0, time.time() + 6), 7.0)
@@ -1364,7 +1369,8 @@ async def on_start(app):
     usun_stare()
     app["sprz"] = asyncio.create_task(sprzatanie())
     app["skan"] = asyncio.create_task(skan_petla())
-    app["bufor"] = asyncio.create_task(bufor.petla())
+    app["bufor"] = asyncio.create_task(bufor.petla("m"))
+    app["bufor_s"] = asyncio.create_task(bufor.petla("s"))
 
 
 def main():
