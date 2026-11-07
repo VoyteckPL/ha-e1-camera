@@ -98,7 +98,7 @@ body[data-tab=prz] header,body[data-tab=prz] #m,body[data-tab=prz] #pk,body[data
 #nav button{flex:1;border:0;background:none;color:var(--mu);font:inherit;font-size:12px;padding:8px 4px 6px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;min-height:56px}
 #nav button i{font-style:normal;font-size:22px;line-height:1}
 body[data-tab=zd] #nav [data-tab=zd],body[data-tab=live] #nav [data-tab=live],body[data-tab=ust] #nav [data-tab=ust],body[data-tab=park] #nav [data-tab=park],body[data-tab=prz] #nav [data-tab=prz]{color:var(--ac);font-weight:600}
-.pzt{width:100%;border-collapse:collapse}.pzt td{padding:8px 4px;border-top:1px solid var(--bd);vertical-align:middle}.pzt tr.pzr{cursor:pointer}.pzt img{width:72px;height:54px;object-fit:contain;background:#000;border-radius:8px;display:block}.pzt .pzn{font-weight:600;font-size:15px}.pzt .pzs{font-size:12px;color:var(--mu)}.pzt .pzw{text-align:right;white-space:nowrap;font-size:13px}.pzt .pzw b{font-size:15px}.pzt .pzk{font-size:18px;line-height:1}.pzt tr.pzg{cursor:pointer}.pzd td{border-top:0;padding:14px 4px 4px;font-size:13px;color:var(--mu);font-weight:600}
+.pzt{width:100%;border-collapse:collapse}.pzt td{padding:8px 4px;border-top:1px solid var(--bd);vertical-align:middle}.pzt tr.pzr{cursor:pointer}.pzt img{width:72px;height:54px;object-fit:contain;background:#000;border-radius:8px;display:block}.pzt .pzn{font-weight:600;font-size:15px}.pzt .pzs{font-size:12px;color:var(--mu)}.pzt .pzw{text-align:right;white-space:nowrap;font-size:13px}.pzt .pzw b{font-size:15px}.pzt .pzk{font-size:18px;line-height:1}.pzt tr.pzg{cursor:pointer}details.lvd>summary{cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between}details.lvd>summary::-webkit-details-marker{display:none}details.lvd>summary h3{margin:0}details.lvd>summary::after{content:'▾';color:var(--mu)}details.lvd[open]>summary::after{content:'▴'}details.lvd[open]>summary{margin-bottom:8px}.pzd td{border-top:0;padding:14px 4px 4px;font-size:13px;color:var(--mu);font-weight:600}
 .btn.big{padding:12px 14px;font-size:15px;border-radius:12px;width:100%}
 .btn{min-height:34px}.row{flex-wrap:wrap}.tc .row,.card .row{justify-content:flex-start}.tc .row .btn,.card .row .btn{flex:1 1 0;padding:7px 4px;white-space:nowrap;text-align:center}
 .chip{padding:7px 13px;font-size:14px}
@@ -123,9 +123,10 @@ body[data-tab=zd] #nav [data-tab=zd],body[data-tab=live] #nav [data-tab=live],bo
 <section id="tz" class="tab"></section>
 <section id="ts" class="tab">
 <div class="set"><h3>Strefy i powiadomienia</h3><p class="opis" style="margin:0">Rysowanie stref na zdjęciu oraz osobne powiadomienia dla osób, aut i zwierząt w każdej strefie.</p><button class="btn pri big" id="stb">Otwórz</button></div>
+<div class="set"><h3>Oznaczanie aut</h3><p class="opis" style="margin:0">Ręczne oznaczanie aut na podjeździe (Kia, Seat, Obce…) w zdarzeniach z samochodem. Domyślnie wyłączone, bo auta na drodze rozpoznaje Gemini w zakładce Przejazdy. Ustawienie dotyczy tego urządzenia.</p><button class="btn big" id="ozb"></button></div>
 <div class="set"><h3>Strojenie</h3><p class="opis" style="margin:0" id="tus">Zbieranie danych do uczenia czułości.</p><button class="btn big" id="tub">Pokaż dane</button></div>
 <div class="set"><h3>Historia</h3><p class="opis" style="margin:0">Usuwa wszystkie zdarzenia z panelu (pliki zostaną posprzątane automatycznie).</p><button class="btn big" id="clr">Wyczyść historię</button></div>
-<p class="opis" style="text-align:center">Panel kamery v48</p>
+<p class="opis" style="text-align:center">Panel kamery v49</p>
 </section>
 <nav id="nav"><button data-tab="zd"><i>🗂</i><span>Zdarzenia</span></button><button data-tab="live"><i>🎥</i><span>Na żywo</span></button><button data-tab="park"><i>🅿️</i><span>Parking</span></button><button data-tab="prz"><i>🚗</i><span>Przejazdy</span></button><button data-tab="ust"><i>⚙️</i><span>Ustawienia</span></button></nav>
 
@@ -224,13 +225,14 @@ el.className='on';el.innerHTML='<span class="pt">🚗 Zaparkowane: <b>'+esc(s.st
 async function loadAuta(){try{const c=await api({cmd:'auta'});AUTA=c.auta||[];last=''}catch(e){}}
 async function doLabel(b,id,i){const x=ALL.find(z=>z.b==b);if(!x)return;const pj=(x.pojazdy||[]).find(p=>String(p.i)==String(i));try{const o={cmd:'etykieta',b:b,crop:pj?pj.crop:(x.crop||x.plik),auto:id};if(pj)o.i=pj.i;const c=await api(o);x.auto=c.auto;AUTA=c.auta||AUTA;if(pj){pj.nazwa=c.auto;pj.auto_id=id}}catch(err){}last='';render();if(EV&&EV.b==b){EV.auto=x.auto;auRender()}setTimeout(()=>{last='';render();if(EV&&EV.b==b){const y=ALL.find(z=>z.b==b);if(y){EV=y;delete zi.dataset.u;showPhoto();auRender()}}},2500)}
 function chips(e,i,p){const cur=(p?p.nazwa:e.auto)||'';return AUTA.map(a=>{const n=a.nazwa+(a.opis?' ('+a.opis+')':'');return `<button class="btn sm${cur==n?' pri':''}" data-lab="${esc(e.b)}|${esc(a.id)}|${i}">${esc(a.nazwa.split(' ')[0])}</button>`}).join('')+`<button class="btn sm${(p?p.auto_id=='obce':e.auto=='Obce auto')?' pri':''}" data-lab="${esc(e.b)}|obce|${i}">Obce</button>`}
+let OZN=false;try{OZN=localStorage.getItem('kozn')=='1'}catch(e){}
 const LABOPEN=new Set();
-function carsHtml(e){if(!AUTA.length)return '';const l=e.pojazdy||[];const o=LABOPEN.has(e.b);
+function carsHtml(e){if(!OZN||!AUTA.length)return '';const l=e.pojazdy||[];const o=LABOPEN.has(e.b);
 const tog=`<button class="btn sm tg" data-tog="${esc(e.b)}">${o?'▴ Ukryj oznaczanie':'▾ Oznacz auta'}</button>`;
 if(!o)return `<div class="row lab">${tog}</div>`;
 if(l.length)return tog+'<div class="cars">'+l.map(p=>`<div class="car"><img src="${SN}${esc(p.crop)}"><div class="cn">${esc(p.nazwa||'Nieznane auto')}</div><div class="row lab">${chips(e,p.i,p)}</div></div>`).join('')+'</div>';
 return tog+`<div class="row lab">${chips(e,'',null)}</div>`}
-function auRender(){const el=$('au');if(!EV||EV.rodzaj!='Pojazd'||!AUTA.length){el.className='';return}
+function auRender(){const el=$('au');if(!OZN||!EV||EV.rodzaj!='Pojazd'||!AUTA.length){el.className='';return}
 el.className='on';el.innerHTML=carsHtml(EV)}
 $('au').addEventListener('click',e=>{const t=e.target.closest('[data-tog]');if(t){e.stopPropagation();if(LABOPEN.has(t.dataset.tog))LABOPEN.delete(t.dataset.tog);else LABOPEN.add(t.dataset.tog);last='';render();auRender();return}const b=e.target.closest('[data-lab]');if(!b)return;e.stopPropagation();const q=b.dataset.lab.split('|');b.textContent='…';doLabel(q[0],q[1],q[2])});
 
@@ -390,7 +392,7 @@ let lvDrag=false,lvT0=0;
 const lvNum=e=>{const h=H(),s=h&&h.states[e];return s&&!isNaN(+s.state)?+s.state:null};
 function lvBuild(){const el=$('tl');if(el.dataset.b)return;el.dataset.b=1;
 const pr=PRES.map(p=>`<button data-pre="${p[0]}"><i>${p[1]}</i><span>${p[2]}</span><small>${p[3]}</small></button>`).join('')+`<button data-pre="wlasny" id="prw"><i>⭐</i><span>Własny</span><small>zapisany</small></button>`;
-let g='';for(const [t,ls] of SLG){g+=`<div class="set"><h3>${t}</h3>`+ls.map(l=>`<div class="sl"><div class="sh"><span>${l[0]}</span><b data-lv="${l[1]}">–</b></div><input type="range" data-sl="${l[1]}" min="0" max="100" step="1"></div>`).join('')+`</div>`}
+let g='';for(const [t,ls] of SLG){let op='';try{op=localStorage.getItem('kls_'+t)=='1'?' open':''}catch(e){}g+=`<details class="set lvd" data-lt="${esc(t)}"${op}><summary><h3>${t}</h3></summary>`+ls.map(l=>`<div class="sl"><div class="sh"><span>${l[0]}</span><b data-lv="${l[1]}">–</b></div><input type="range" data-sl="${l[1]}" min="0" max="100" step="1"></div>`).join('')+`</details>`}
 g+=`<div class="set"><h3>Noc i światło</h3>`+SEL.map(l=>`<div class="f"><label>${l[0]}</label><select data-se="${l[1]}"></select></div>`).join('')+`</div>`;
 el.innerHTML=`<div class="lvw"><img id="lvi" alt=""><span class="lvi" id="lvt">na żywo</span><span class="lvi" id="lvz" style="left:auto;right:8px;top:8px"></span><button class="lvb" id="lvfs">⛶ Pełny ekran</button></div>
 <div class="pre" id="pre">${pr}</div>
@@ -550,5 +552,8 @@ h+=`<tr class="pzr" data-b="${esc(e.b)}"><td style="width:76px">${im?`<img loadi
 el.innerHTML=h+'</table>'}
 document.addEventListener('click',e=>{const g=e.target.closest&&e.target.closest('tr.pzg');if(g){PZO=PZO==g.dataset.k?'':g.dataset.k;pzRender();return}const t=e.target.closest&&e.target.closest('tr.pzr');if(t&&ALL.find(x=>x.b==t.dataset.b))openEv(t.dataset.b)});
 setInterval(()=>{if(TAB=='prz'&&Date.now()-PZT>10000)pzLoad()},3000);
+document.addEventListener('toggle',e=>{const d=e.target;if(d.classList&&d.classList.contains('lvd'))try{localStorage.setItem('kls_'+d.dataset.lt,d.open?'1':'0')}catch(_){}},true);
+function oznUpd(){const b=$('ozb');if(b){b.textContent=OZN?'Włączone – wyłącz':'Wyłączone – włącz';b.className='btn big'+(OZN?' pri':'')}}
+document.addEventListener('click',e=>{if(e.target.id=='ozb'){OZN=!OZN;try{localStorage.setItem('kozn',OZN?'1':'0')}catch(_){}oznUpd();last='';render();auRender()}});oznUpd();
 setTab(TAB);render();loadCfg();loadAuta();chkUrl();setInterval(()=>{render();pkRender();chkUrl();if($('tu').classList.contains('on'))tuRender();lvSync();tusSync()},1500);setInterval(lvSnap,1200);setInterval(()=>{if(!AUTA.length)loadAuta()},8000);ping();setInterval(ping,10000);document.addEventListener('visibilitychange',ping);
 </script></body></html>

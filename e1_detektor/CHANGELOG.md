@@ -302,3 +302,6 @@
 
 ## 0.18.9
 - Poprawka: brakujący import `re` psuł rozpoznawanie przejazdów (0.18.3–0.18.8).
+
+## 0.18.10
+- Panel v49: ręczne oznaczanie aut domyślnie ukryte (włączane w Ustawieniach, per urządzenie); w „Na żywo” sekcje „Wykrywanie (AI)” i „Obraz” zwinięte domyślnie (zapamiętują rozwinięcie).
