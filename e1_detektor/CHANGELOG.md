@@ -263,3 +263,6 @@
 
 ## 0.17.18
 - diag2: parametry okna.
+
+## 0.17.19
+- diag2: statystyki klatek.

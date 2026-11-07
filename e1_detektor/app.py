@@ -549,13 +549,13 @@ def diag2_sync(b, od_off=-10.0, do_off=8.0, fps=8):
     for i, a in enumerate(arr):
         m = np.abs(a - bg) > 14
         ar = float(m.mean())
-        o = {"t": round(od + i / fps - t0, 1), "ar": round(ar, 3)}
+        o = {"t": round(od + i / fps - t0, 1), "ar": round(ar, 3), "e": round(float(np.abs(a - bg).mean()), 2), "m": int(np.abs(a - bg).max()), "br": round(float(a.mean()), 1)}
         if ar > 0.0005:
             ys, xs = np.nonzero(m)
             o["mx"] = round(float(xs.mean()) / 160, 2)
             o["my"] = round(float(ys.mean()) / 120, 2)
         out.append(o)
-    return {"t0": t0, "k0": k[0][0] - t0, "sek": round(time.time() - ts, 1), "n": n, "ramki": [o for o in out if o["ar"] > 0.0005]}
+    return {"t0": t0, "k0": k[0][0] - t0, "sek": round(time.time() - ts, 1), "n": n, "ramki": [[o["t"], o["ar"], o["e"], o["m"], o["br"], o.get("mx"), o.get("my")] for o in out[::2]]}
 
 
 def popraw_kadr_sync(clip, b, n0):
