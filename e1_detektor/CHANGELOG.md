@@ -226,3 +226,6 @@
 
 ## 0.17.6
 - Składanie klipu i klatek: sklejanie kawałków bajtami zamiast demuxera concat (z ~7 s do ~1 s na Pi); kawałki z ciągłymi znacznikami czasu.
+
+## 0.17.7
+- Panel: lista zdarzeń bez przycisków Wideo / Fałsz. / Usuń i bez oznaczania aut (kompaktowo). W arkuszu zdarzenia: Fałszywy alarm, Usuń i rozwinięte oznaczanie aut.
