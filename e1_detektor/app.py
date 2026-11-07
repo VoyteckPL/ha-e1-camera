@@ -1589,6 +1589,15 @@ async def analyze(request):
                         asyncio.create_task(rl_i_dopieszcz(_b, "pojazd", KLASY["pojazd"]))
                 asyncio.create_task(_pe())
                 return web.json_response({"ok": True})
+            if dane.get("cmd") == "obraz_info":
+                _b = str(dane.get("b", ""))
+                _o = {}
+                for _n in (f"e1_crop_{_b}.jpg", f"e1_best_{_b}.jpg", f"e1_pz_{_b}.jpg"):
+                    _f = SNAP / _n
+                    if _f.exists():
+                        _im = Image.open(_f)
+                        _o[_n] = {"px": list(_im.size), "bajty": _f.stat().st_size, "mtime": time.strftime("%H:%M:%S", time.localtime(_f.stat().st_mtime))}
+                return web.json_response({"ok": True, "info": _o})
             if dane.get("cmd") == "bufor_wynik":
                 return web.json_response({"ok": True, "wynik": _TEST})
             if dane.get("cmd") == "sd_test":

@@ -314,3 +314,6 @@
 
 ## 0.18.13
 - Panel v51: kolejne zdarzenia tego samego rodzaju (poza pojazdami) w tej samej strefie, oddzielone do 5 min, składają się w jedną kartę z zakresem godzin i licznikiem; klik rozwija pojedyncze.
+
+## 0.18.14
+- Komenda `obraz_info` (rozmiar i czas zapisu zdjęcia/wycinka zdarzenia).
