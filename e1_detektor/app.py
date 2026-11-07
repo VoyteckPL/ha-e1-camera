@@ -822,6 +822,61 @@ async def rl_i_dopieszcz(b, rodzaj, klasy):
     PEND.pop(b, None)
 
 
+def klip_analiza_sync(b, fps=2):
+    """Skanuje caly klip zdarzenia (osoby i pojazdy), sklada tory i zwraca ich opis (do raportu / osobnych zdarzen)."""
+    clip = SNAP / f"e1_v_{b}.mp4"
+    if not clip.exists():
+        return {"blad": "brak klipu"}
+    tmpd = tempfile.mkdtemp(prefix="e1k_")
+    try:
+        r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(clip), "-vf", f"fps={fps},scale=1280:-2", "-q:v", "3", f"{tmpd}/f_%03d.jpg"], capture_output=True, timeout=240)
+        files = sorted(Path(tmpd).glob("f_*.jpg"))
+        if not files:
+            return {"blad": "brak klatek"}
+        tory = []
+        for kl, nazwa in (("osoba", "osoba"), ("pojazd", "pojazd")):
+            tt = []
+            for i, f in enumerate(files):
+                im = Image.open(f)
+                im.load()
+                iw, ih = im.size
+                for bx in detect(im, KLASY[kl], 0.3):
+                    n = _norm(bx, iw, ih)
+                    best, bd = None, 0.25
+                    for t in tt:
+                        if i - t["f"][-1][0] <= 3 and t["f"][-1][0] < i:
+                            lb = t["f"][-1][1]
+                            d = math.hypot((n[0] + n[2]) / 2 - (lb[0] + lb[2]) / 2, ((n[1] + n[3]) / 2 - (lb[1] + lb[3]) / 2) * 0.75)
+                            if _iou(n, lb) > 0.1 or d < 0.1:
+                                if d < bd:
+                                    best, bd = t, d
+                    if best is not None:
+                        best["f"].append((i, n, bx[4]))
+                    else:
+                        tt.append({"k": nazwa, "f": [(i, n, bx[4])]})
+            tory += tt
+        wyn = []
+        dl = len(files) / fps
+        for t in tory:
+            f = t["f"]
+            if len(f) < 2:
+                continue
+            c0 = ((f[0][1][0] + f[0][1][2]) / 2, (f[0][1][1] + f[0][1][3]) / 2)
+            c1 = ((f[-1][1][0] + f[-1][1][2]) / 2, (f[-1][1][1] + f[-1][1][3]) / 2)
+            dxy = math.hypot(c1[0] - c0[0], (c1[1] - c0[1]) * 0.75)
+            mx = max(abs((a[1][0] + a[1][2]) / 2 - c0[0]) for a in f)
+            t0, t1 = f[0][0] / fps, f[-1][0] / fps
+            statyczny = max(math.hypot((a[1][0] + a[1][2]) / 2 - c0[0], (a[1][1] + a[1][3]) / 2 - c0[1]) for a in f) < 0.03
+            wyn.append({"k": t["k"], "od": round(t0, 1), "do": round(t1, 1), "n": len(f), "x0": round(c0[0], 2), "y0": round(c0[1], 2), "x1": round(c1[0], 2), "y1": round(c1[1], 2),
+                        "przes": round(dxy, 2), "stoi": statyczny, "kier": "prawo" if c1[0] - c0[0] > 0.06 else "lewo" if c1[0] - c0[0] < -0.06 else "?",
+                        "conf": round(max(a[2] for a in f), 2), "box": [round(v, 2) for v in max(f, key=lambda a: (a[1][2] - a[1][0]) * (a[1][3] - a[1][1]) * a[2])[1]],
+                        "t_best": round(max(f, key=lambda a: (a[1][2] - a[1][0]) * (a[1][3] - a[1][1]) * a[2])[0] / fps, 1)})
+        wyn.sort(key=lambda x: x["od"])
+        return {"dl": round(dl, 1), "klatek": len(files), "tory": wyn}
+    finally:
+        shutil.rmtree(tmpd, ignore_errors=True)
+
+
 def diag_sync(b, od_off=-9.0, do_off=7.0, krok=1):
     """Diagnostyka: dla kazdej klatki lekkiego strumienia w oknie - ruch (powierzchnia, srodek) i detekcje pojazdow."""
     t = reolink.czas_zdarzenia(b)
@@ -1608,6 +1663,13 @@ async def analyze(request):
                         _im = Image.open(_f)
                         _o[_n] = {"px": list(_im.size), "bajty": _f.stat().st_size, "mtime": time.strftime("%H:%M:%S", time.localtime(_f.stat().st_mtime))}
                 return web.json_response({"ok": True, "info": _o})
+            if dane.get("cmd") == "klip_analiza":
+                _b = str(dane.get("b", ""))
+                async def _ka():
+                    async with GLOCK:
+                        _TEST["ka"] = await asyncio.get_running_loop().run_in_executor(None, klip_analiza_sync, _b)
+                asyncio.create_task(_ka())
+                return web.json_response({"ok": True})
             if dane.get("cmd") == "bufor_wynik":
                 return web.json_response({"ok": True, "wynik": _TEST})
             if dane.get("cmd") == "sd_test":
