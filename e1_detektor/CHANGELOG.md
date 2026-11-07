@@ -235,3 +235,7 @@
 
 ## 0.17.9
 - Panel: oznaczanie aut w arkuszu zdarzenia domyślnie zwinięte.
+
+## 0.17.10
+- Miniatury osób w całości (bez ucinania), ten sam rozmiar.
+- Podgląd na żywo: naprawione gubienie zoomu szczypaniem (czyszczenie zawieszonych wskaźników dotyku).

@@ -45,7 +45,7 @@ h2{font-size:13px;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;
 .ti .dot{position:absolute;left:50px;top:20px;width:12px;height:12px;border-radius:50%;border:3px solid var(--ac);background:var(--cd);z-index:1}
 .gap{position:relative;padding:5px 0 5px 70px;font-size:12px;color:var(--mu)}
 .tc{display:flex;gap:10px;background:var(--cd);border:1px solid var(--bd);border-radius:12px;padding:8px;margin:5px 0}
-.tc img{width:84px;height:63px;flex:none;object-fit:cover;border-radius:8px;background:#000;cursor:pointer;display:block}
+.tc img.cr{object-fit:contain}.tc img{width:84px;height:63px;flex:none;object-fit:cover;border-radius:8px;background:#000;cursor:pointer;display:block}
 .tc .body{padding:0;gap:4px}
 .full{position:fixed;inset:0;background:var(--bg);z-index:16;overflow:auto;display:none;padding:0 12px 40px}.full.on{display:block}
 #grw{overscroll-behavior:contain;position:relative;width:100%;aspect-ratio:4/3;cursor:crosshair;touch-action:none;overflow:hidden;background:#000;border-radius:10px;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}#grw *{user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}#grz{position:absolute;inset:0;transform-origin:0 0;will-change:transform}#grz img{width:100%;height:100%;display:block;object-fit:fill;pointer-events:none;-webkit-user-drag:none}#gs{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}#grc{display:flex;gap:6px;align-items:center;margin:6px 0}#grc span{font-size:12px;color:var(--mu)}
@@ -194,7 +194,7 @@ if(!list.length){$('m').innerHTML='<p class="empty">Brak zdarzeń.</p>';return}
 let out='',g='',prev=null;
 for(const e of list){const d=day(e.czas);if(d!=g){if(g)out+='</div>';out+=`<h2>${d}</h2><div class="${TV?'tl':'grid'}">`;g=d;prev=null}
 const tg=(e.ruch?`<span class="tag p">${esc(e.ruch)}</span>`:'')+`<span class="tag"><span class="dotc" style="background:${zcol(e.lok)}"></span>${esc(e.lok||'')}</span>${+e.conf>0?`<span class="tag">${Math.round(e.conf*100)}%</span>`:''}`;
-const im=`<img loading="lazy" src="${esc(img(e))}" data-e="${esc(e.b)}" onerror="this.onerror=null;this.src='${SN}${esc(e.plik)}'">`;
+const im=`<img${(e.pojazdy||[]).length||!e.crop?'':' class="cr"'} loading="lazy" src="${esc(img(e))}" data-e="${esc(e.b)}" onerror="this.onerror=null;this.src='${SN}${esc(e.plik)}'">`;
 const rw='';
 if(TV){const gp=prev?gapTxt(prev,e.czas):'';if(gp)out+=`<div class="gap">${gp}</div>`;prev=e.czas;
 out+=`<div class="ti"><span class="tm">${esc(e.czas.slice(11,16))}</span><span class="dot"></span><div class="tc">${im}<div class="body"><div class="top"><span>${NAZ[e.rodzaj]||esc(e.rodzaj)}</span></div><div class="tags">${tg}</div>${rw}</div></div></div>`}
@@ -483,7 +483,9 @@ if(P.size==1&&z>1){x+=q.x-p.x;y+=q.y-p.y;p.x=q.x;p.y=q.y;ap()}
 else if(P.size==2){p.x=q.x;p.y=q.y;const [a,c]=[...P.values()];const d=Math.hypot(a.x-c.x,a.y-c.y);if(d0>0)zoomAt(Math.max(1,Math.min(8,z0*d/d0)),(a.x+c.x)/2-b.left,(a.y+c.y)/2-b.top)}
 else{p.x=q.x;p.y=q.y}});
 const up=e=>{P.delete(e.pointerId);if(P.size==1){const q=[...P.values()][0];}};
-document.addEventListener('pointerup',up);document.addEventListener('pointercancel',up);
+document.addEventListener('pointerup',up);document.addEventListener('pointercancel',up);document.addEventListener('lostpointercapture',up);
+const clr=e=>{if(!e.touches||e.touches.length==0)P.clear()};document.addEventListener('touchend',clr,true);document.addEventListener('touchcancel',clr,true);addEventListener('blur',()=>P.clear());document.addEventListener('visibilitychange',()=>P.clear());
+document.addEventListener('touchstart',e=>{if(e.touches.length<P.size)P.clear()},true);
 document.addEventListener('dblclick',e=>{const w=e.target.closest&&e.target.closest('.lvw');if(!w||e.target.closest('button'))return;const b=box(),q=pt(e);if(z>1){z=1;ap()}else zoomAt(3,q.x-b.left,q.y-b.top)});
 window.lvZoomReset=()=>{z=1;x=y=0;ap()};window.lvAp=ap;
 document.addEventListener('wheel',e=>{const w=e.target.closest&&e.target.closest('.lvw');if(!w)return;e.preventDefault();const b=box(),q=pt(e);zoomAt(Math.max(1,Math.min(8,z*(e.deltaY<0?1.2:1/1.2))),q.x-b.left,q.y-b.top)},{passive:false});
