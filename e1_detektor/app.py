@@ -601,6 +601,7 @@ def najlepsza_klatka_sync(b, klasy, granica, t0=None, extra=False):
         img = img.convert("RGB")
         img.save(pf, quality=92)
         PEND[b] = (tc, fg_ref, list(n))
+        GLOWNY[b] = (tc, list(n))
         iw, ih = img.size
         wybrany = None
         # pelny model na pelnej klatce: ramka najblizsza tej z lekkiego strumienia
@@ -820,6 +821,8 @@ async def rl_i_dopieszcz(b, rodzaj, klasy):
                 log.exception("dopieszczanie %s", kk)
         PEND.pop(kk, None)
     PEND.pop(b, None)
+    if ok:
+        asyncio.create_task(rozdziel_i_dodaj(b))
 
 
 def klip_analiza_sync(b, fps=2):
@@ -878,6 +881,163 @@ def klip_analiza_sync(b, fps=2):
         return {"dl": round(dl, 1), "klatek": len(files), "tory": wyn}
     finally:
         shutil.rmtree(tmpd, ignore_errors=True)
+
+
+GLOWNY = {}  # b -> (czas klatki glownego zdarzenia, norm. ramka) - zeby przy rozdzielaniu klipu nie dublowac glownego obiektu
+
+
+def rozdziel_klip_sync(b, start=None, pomin_t=None):
+    """Z klipu zdarzenia (nagranie z kamery, pelna jakosc) wyciaga osobne obiekty: tory ruchu (osoby, pojazdy), kazdy z wlasnym
+    zdjeciem, wycinkiem i krotkim klipem. Zwraca liste zdarzen do dodania do historii (bez glownego obiektu zdarzenia)."""
+    import cv2
+    clip = SNAP / f"e1_v_{b}.mp4"
+    if not clip.exists():
+        return []
+    fs = reolink.START.get(b)
+    if fs is None and start:
+        d0 = reolink.czas_zdarzenia(b)
+        h, m, sec = [int(x) for x in start.split(":")]
+        fs = d0.replace(hour=h, minute=m, second=sec) if d0 else None
+    if fs is None:
+        return []
+    fs_ep = time.mktime(fs.timetuple())
+    FPS = 3
+    tmpd = tempfile.mkdtemp(prefix="e1r_")
+    ts0 = time.time()
+    try:
+        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(clip), "-vf", f"fps={FPS},scale=640:480", "-q:v", "3", f"{tmpd}/f_%03d.jpg"], capture_output=True, timeout=240)
+        files = sorted(Path(tmpd).glob("f_*.jpg"))
+        if len(files) < 12:
+            return []
+        gray = np.stack([np.asarray(Image.open(f).convert("L").resize((320, 240)), dtype=np.float32) for f in files])
+        bg = np.median(gray, 0)
+        dl = len(files) / FPS
+        kern_o = np.ones((3, 3), np.uint8)
+        kern_d = np.ones((9, 9), np.uint8)
+        tory = []
+        for k, a in enumerate(gray):
+            m = (np.abs(a - bg) > 28).astype(np.uint8)
+            if float(m.mean()) > 0.4:
+                continue
+            m = cv2.dilate(cv2.morphologyEx(m, cv2.MORPH_OPEN, kern_o), kern_d)
+            nl, _lab, st, cen = cv2.connectedComponentsWithStats(m, connectivity=8)
+            for i in range(1, nl):
+                x, y, w, h, ar = [int(v) for v in st[i]]
+                if ar < 120:
+                    continue
+                bl = (k, float(cen[i][0]) / 320, float(cen[i][1]) / 240, ar, (x / 320, y / 240, (x + w) / 320, (y + h) / 240))
+                best, bd = None, 0.22
+                for t in tory:
+                    if t[-1][0] < k and k - t[-1][0] <= 4:
+                        d = math.hypot(bl[1] - t[-1][1], (bl[2] - t[-1][2]) * 0.75)
+                        if d < bd:
+                            best, bd = t, d
+                if best is not None:
+                    best.append(bl)
+                else:
+                    tory.append([bl])
+        log.info("rozdziel %s: %d klatek, surowe tory %d (%.0f s)", b, len(files), len(tory), time.time() - ts0)
+        scan = SESS_T or SESS
+        cfg = strefy.wczytaj("")
+        gl = GLOWNY.get(b)
+        wynik = []
+        for t in tory:
+            if len(t) < 3:
+                continue
+            t0, t1 = t[0][0] / FPS, t[-1][0] / FPS
+            c0, c1 = (t[0][1], t[0][2]), (t[-1][1], t[-1][2])
+            ruch = max(math.hypot(q[1] - c0[0], (q[2] - c0[1]) * 0.75) for q in t)
+            if ruch < 0.03 and (t1 - t0) > 0.8 * dl:
+                continue  # tlo (stojace auto)
+            if pomin_t is not None and t0 - 1.0 <= pomin_t <= t1 + 1.0:
+                continue
+            # klatki kandydujace: najwiekszy obszar, srodek, ostatnia (auto, ktore stanelo)
+            kand_k = []
+            for q in (max(t, key=lambda q: q[3]), t[len(t) // 2], t[-1]):
+                if q[0] not in [x[0] for x in kand_k]:
+                    kand_k.append(q)
+            best = None
+            for q in kand_k:
+                im = Image.open(files[q[0]])
+                im.load()
+                iw, ih = im.size
+                bb = q[4]
+                ex, ey = (bb[2] - bb[0]) * 0.25, (bb[3] - bb[1]) * 0.25
+                bbx = (bb[0] - ex, bb[1] - ey, bb[2] + ex, bb[3] + ey)
+                for kl in ("pojazd", "osoba"):
+                    for bx in detect(im, KLASY[kl], 0.3, sess=scan):
+                        nb = _norm(bx, iw, ih)
+                        cx_, cy_ = (nb[0] + nb[2]) / 2, (nb[1] + nb[3]) / 2
+                        if not (_iou(nb, bbx) > 0.15 or (bbx[0] <= cx_ <= bbx[2] and bbx[1] <= cy_ <= bbx[3])):
+                            continue
+                        sc = bx[4] * (1.0 + 2.0 * _iou(nb, bbx)) * (1.0 if kl == "pojazd" else 0.9)
+                        if best is None or sc > best[0]:
+                            best = (sc, kl, nb, bx[4], q)
+            if best is None:
+                continue
+            _, kl, nb, conf, q = best
+            tb = q[0] / FPS
+            if gl and fs_ep + tb - gl[0] < 2.5 and abs(fs_ep + tb - gl[0]) < 2.5 and _iou(nb, gl[1]) > 0.25:
+                continue  # to glowny obiekt zdarzenia
+            wynik.append({"k": kl, "t0": t0, "t1": t1, "tb": tb, "box": nb, "conf": conf, "tor": [(x[0] / FPS, x[1], x[2]) for x in t]})
+        # osoby bliskie sobie w czasie i miejscu (np. doroslY z dzieckiem) = jedno zdarzenie
+        scalone = []
+        for w in sorted(wynik, key=lambda x: x["t0"]):
+            for o in scalone:
+                if o["k"] == w["k"] == "osoba" and w["t0"] <= o["t1"] + 1.0 and o["t0"] <= w["t1"] + 1.0:
+                    cw, co = ((w["box"][0] + w["box"][2]) / 2, (w["box"][1] + w["box"][3]) / 2), ((o["box"][0] + o["box"][2]) / 2, (o["box"][1] + o["box"][3]) / 2)
+                    if math.hypot(cw[0] - co[0], cw[1] - co[1]) < 0.25:
+                        o["t0"], o["t1"] = min(o["t0"], w["t0"]), max(o["t1"], w["t1"])
+                        o["n_os"] = o.get("n_os", 1) + 1
+                        if w["conf"] > o["conf"]:
+                            o["tb"], o["box"], o["conf"] = w["tb"], w["box"], w["conf"]
+                        break
+            else:
+                scalone.append(w)
+        log.info("rozdziel %s: obiekty %s (%.0f s)", b, [(w["k"], round(w["t0"], 1), round(w["t1"], 1)) for w in scalone], time.time() - ts0)
+        out = []
+        for i, w in enumerate(scalone[:6], 1):
+            key = f"{b}_s{i}"
+            ts_best = fs_ep + w["tb"]
+            r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{w['tb']:.2f}", "-i", str(clip), "-frames:v", "1", "-q:v", "2", str(SNAP / f"e1_best_{key}.jpg")], capture_output=True, timeout=120)
+            pf = SNAP / f"e1_best_{key}.jpg"
+            if r.returncode != 0 or not pf.exists():
+                continue
+            img = Image.open(pf)
+            img.load()
+            iw, ih = img.size
+            nb = w["box"]
+            bx = (nb[0] * iw, nb[1] * ih, nb[2] * iw, nb[3] * ih, w["conf"])
+            zapisz_kadr(img, bx[:4], SNAP / f"e1_crop_{key}.jpg")
+            zid = strefy.przypisz(bx, iw, ih, cfg, w["k"])
+            lok = strefy.nazwa(cfg, zid)
+            s0 = max(0.0, w["t0"] - 3.0)
+            subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{s0:.2f}", "-t", f"{w['t1'] - s0 + 4.0:.2f}", "-i", str(clip), "-c", "copy", "-movflags", "+faststart", str(SNAP / f"e1_v_{key}.mp4")], capture_output=True, timeout=120)
+            kier = kierunek_z_ruchu([(j, q[1], q[2]) for j, q in enumerate(w["tor"])])
+            KIER[key] = kier
+            out.append({"key": key, "rodzaj": "Pojazd" if w["k"] == "pojazd" else "Osoba", "kod": w["k"], "ts": ts_best, "lok": lok, "conf": round(w["conf"], 3), "kier": kier,
+                        "t0": round(w["t0"], 1), "t1": round(w["t1"], 1)})
+        log.info("rozdziel %s: gotowe, %d zdarzen (%.0f s)", b, len(out), time.time() - ts0)
+        return out
+    finally:
+        shutil.rmtree(tmpd, ignore_errors=True)
+
+
+async def rozdziel_i_dodaj(b, start=None, pomin_t=None):
+    try:
+        async with GLOCK:
+            ev = await asyncio.get_running_loop().run_in_executor(None, rozdziel_klip_sync, b, start, pomin_t)
+        for e in ev:
+            async with reolink.HA() as ha:
+                await ha.cmd({"type": "fire_event", "event_type": "kamera_zdarzenie", "event_data": {
+                    "b": e["key"], "conf": e["conf"], "crop": f"e1_crop_{e['key']}.jpg", "czas": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(e["ts"])),
+                    "lok": e["lok"], "plik": f"e1_best_{e['key']}.jpg", "pow": 0, "rodzaj": e["rodzaj"], "video": f"e1_v_{e['key']}.mp4"}})
+            if e["kod"] == "pojazd" and "droga" in e["lok"].lower():
+                asyncio.create_task(przejazd_wpis(e["key"], czekaj=False, ts=e["ts"]))
+        return ev
+    except Exception:
+        log.exception("rozdziel %s", b)
+        return []
 
 
 def diag_sync(b, od_off=-9.0, do_off=7.0, krok=1):
@@ -1695,6 +1855,9 @@ async def analyze(request):
                     return out
                 _TEST["ys"] = await asyncio.get_running_loop().run_in_executor(None, _ys)
                 return web.json_response({"ok": True, "pliki": list(_TEST["ys"])})
+            if dane.get("cmd") == "rozdziel":
+                asyncio.create_task(rozdziel_i_dodaj(str(dane.get("b", "")), dane.get("start"), dane.get("pomin_t")))
+                return web.json_response({"ok": True})
             if dane.get("cmd") == "bufor_wynik":
                 return web.json_response({"ok": True, "wynik": _TEST})
             if dane.get("cmd") == "sd_test":
