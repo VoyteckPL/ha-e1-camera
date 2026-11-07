@@ -266,3 +266,6 @@
 
 ## 0.17.19
 - diag2: statystyki klatek.
+
+## 0.17.20
+- diag2: tylko klatki z ruchem.

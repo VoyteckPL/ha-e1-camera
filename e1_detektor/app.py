@@ -555,7 +555,7 @@ def diag2_sync(b, od_off=-10.0, do_off=8.0, fps=8):
             o["mx"] = round(float(xs.mean()) / 160, 2)
             o["my"] = round(float(ys.mean()) / 120, 2)
         out.append(o)
-    return {"t0": t0, "k0": k[0][0] - t0, "sek": round(time.time() - ts, 1), "n": n, "ramki": [[o["t"], o["ar"], o["e"], o["m"], o["br"], o.get("mx"), o.get("my")] for o in out[::2]]}
+    return {"t0": t0, "k0": k[0][0] - t0, "sek": round(time.time() - ts, 1), "n": n, "ramki": [[o["t"], o["ar"], o["e"], o["m"], o.get("mx"), o.get("my")] for o in out if o["m"] >= 30][:80]}
 
 
 def popraw_kadr_sync(clip, b, n0):
