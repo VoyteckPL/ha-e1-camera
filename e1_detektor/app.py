@@ -937,10 +937,35 @@ def rozdziel_klip_sync(b, start=None, pomin_t=None):
                 else:
                     tory.append([bl])
         log.info("rozdziel %s: %d klatek, surowe tory %d (%.0f s)", b, len(files), len(tory), time.time() - ts0)
-        scan = SESS_T or SESS
         cfg = strefy.wczytaj("")
         gl = GLOWNY.get(b)
         wynik = []
+
+        def vboxes(i):
+            im_ = Image.open(files[i])
+            im_.load()
+            return [_norm(bx_, *im_.size) + [bx_[4]] for bx_ in detect(im_, KLASY["pojazd"], 0.4, sess=SESS)]
+
+        nf = len(files)
+        v_pocz, v_pocz2 = vboxes(0), vboxes(min(4, nf - 1))
+        v_kon, v_kon2 = vboxes(nf - 1), vboxes(max(0, nf - 5))
+        pocz = [a for a in v_pocz if any(_iou(a[:4], c[:4]) > 0.5 for c in v_pocz2)]  # stoja na poczatku
+        kon = [a for a in v_kon if any(_iou(a[:4], c[:4]) > 0.5 for c in v_kon2)]  # stoja na koncu
+        stat = [a for a in pocz if any(_iou(a[:4], c[:4]) > 0.6 for c in kon)]  # stoja caly klip = tlo
+        przyj = [a for a in kon if not any(_iou(a[:4], c[:4]) > 0.3 for c in pocz)]
+        odj = [a for a in pocz if not any(_iou(a[:4], c[:4]) > 0.3 for c in kon)]
+        log.info("rozdziel %s: pojazdy tlo %d, przyjechalo %d, odjechalo %d", b, len(stat), len(przyj), len(odj))
+
+        def czas_obszaru(box, ostatni):
+            ts_ = []
+            for t_ in tory:
+                if len(t_) < 2:
+                    continue
+                q_ = t_[-1] if ostatni else t_[0]
+                if box[0] - 0.05 <= q_[1] <= box[2] + 0.05 and box[1] - 0.05 <= q_[2] <= box[3] + 0.05:
+                    ts_.append(q_[0] / FPS)
+            return (max(ts_) if ostatni else min(ts_)) if ts_ else None
+
         for t in tory:
             if len(t) < 3:
                 continue
@@ -975,6 +1000,8 @@ def rozdziel_klip_sync(b, start=None, pomin_t=None):
                 for kl in ("pojazd", "osoba"):
                     for bx in detect(crop, KLASY[kl], 0.3, sess=SESS):
                         nb = [cx0 + bx[0] / sw * (cx1 - cx0), cy0 + bx[1] / sh * (cy1 - cy0), cx0 + bx[2] / sw * (cx1 - cx0), cy0 + bx[3] / sh * (cy1 - cy0)]
+                        if kl == "pojazd" and any(_iou(nb, a[:4]) > 0.6 for a in stat):
+                            continue  # stojace auto (tlo), nie ruchomy obiekt
                         dbg.append((kl, round(bx[4], 2)))
                         # pokrycie: ramka z crop musi lezec glownie w obszarze ruchu
                         ov = _iou(nb, bb)
@@ -991,6 +1018,18 @@ def rozdziel_klip_sync(b, start=None, pomin_t=None):
             if gl and fs_ep + tb - gl[0] < 2.5 and abs(fs_ep + tb - gl[0]) < 2.5 and _iou(nb, gl[1]) > 0.25:
                 continue  # to glowny obiekt zdarzenia
             wynik.append({"k": kl, "t0": t0, "t1": t1, "tb": tb, "box": nb, "conf": conf, "tor": [(x[0] / FPS, x[1], x[2]) for x in t]})
+        for a in przyj:
+            if gl and _iou(a[:4], gl[1]) > 0.3:
+                continue
+            tm = czas_obszaru(a[:4], True)
+            tm = dl - 2.0 if tm is None else tm
+            wynik = [w for w in wynik if not (w["k"] == "pojazd" and (_iou(w["box"], a[:4]) > 0.3 or (a[0] <= (w["box"][0] + w["box"][2]) / 2 <= a[2] and a[1] <= (w["box"][1] + w["box"][3]) / 2 <= a[3])))]
+            wynik.append({"k": "pojazd", "t0": max(0.0, tm - 3.0), "t1": min(dl, tm + 2.0), "tb": max(0.0, dl - 1.0), "box": a[:4], "conf": a[4], "tor": [], "stoi": "zaparkowal"})
+        for a in odj:
+            tm = czas_obszaru(a[:4], False)
+            tm = 2.0 if tm is None else tm
+            wynik = [w for w in wynik if not (w["k"] == "pojazd" and (_iou(w["box"], a[:4]) > 0.3 or (a[0] <= (w["box"][0] + w["box"][2]) / 2 <= a[2] and a[1] <= (w["box"][1] + w["box"][3]) / 2 <= a[3])))]
+            wynik.append({"k": "pojazd", "t0": max(0.0, tm - 2.0), "t1": min(dl, tm + 3.0), "tb": 0.3, "box": a[:4], "conf": a[4], "tor": [], "stoi": "odjechal"})
         # osoby bliskie sobie w czasie i miejscu (np. doroslY z dzieckiem) = jedno zdarzenie
         scalone = []
         for w in sorted(wynik, key=lambda x: x["t0"]):
@@ -1027,7 +1066,7 @@ def rozdziel_klip_sync(b, start=None, pomin_t=None):
             kier = kierunek_z_ruchu([(j, q[1], q[2]) for j, q in enumerate(w["tor"])])
             KIER[key] = kier
             out.append({"key": key, "rodzaj": "Pojazd" if w["k"] == "pojazd" else "Osoba", "kod": w["k"], "ts": ts_best, "lok": lok, "conf": round(w["conf"], 3), "kier": kier,
-                        "t0": round(w["t0"], 1), "t1": round(w["t1"], 1)})
+                        "t0": round(w["t0"], 1), "t1": round(w["t1"], 1), "stoi": w.get("stoi", "")})
         log.info("rozdziel %s: gotowe, %d zdarzen (%.0f s)", b, len(out), time.time() - ts0)
         return out
     finally:
@@ -1043,7 +1082,7 @@ async def rozdziel_i_dodaj(b, start=None, pomin_t=None):
                 await ha.cmd({"type": "fire_event", "event_type": "kamera_zdarzenie", "event_data": {
                     "b": e["key"], "conf": e["conf"], "crop": f"e1_crop_{e['key']}.jpg", "czas": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(e["ts"])),
                     "lok": e["lok"], "plik": f"e1_best_{e['key']}.jpg", "pow": 0, "rodzaj": e["rodzaj"], "video": f"e1_v_{e['key']}.mp4"}})
-            if e["kod"] == "pojazd" and "droga" in e["lok"].lower():
+            if e["kod"] == "pojazd" and "droga" in e["lok"].lower() and not e.get("stoi"):
                 asyncio.create_task(przejazd_wpis(e["key"], czekaj=False, ts=e["ts"]))
         return ev
     except Exception:

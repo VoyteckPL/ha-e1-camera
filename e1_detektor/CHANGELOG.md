@@ -336,3 +336,6 @@
 
 ## 0.18.20
 - Rozdzielanie klipu: klatki 1280x960 i detekcja pełnym modelem na powiększonym wycinku wokół toru (małe, dalekie obiekty); log torów.
+
+## 0.18.21
+- Rozdzielanie klipu: wykrywanie aut, które stoją cały klip (tło), przyjechały i zaparkowały albo odjechały (porównanie początku i końca klipu); stojące auta nie są już mylone z osobą przechodzącą przed nimi.
