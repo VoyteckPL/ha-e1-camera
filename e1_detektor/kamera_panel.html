@@ -125,7 +125,7 @@ body[data-tab=zd] #nav [data-tab=zd],body[data-tab=live] #nav [data-tab=live],bo
 <div class="set"><h3>Strefy i powiadomienia</h3><p class="opis" style="margin:0">Rysowanie stref na zdjęciu oraz osobne powiadomienia dla osób, aut i zwierząt w każdej strefie.</p><button class="btn pri big" id="stb">Otwórz</button></div>
 <div class="set"><h3>Strojenie</h3><p class="opis" style="margin:0" id="tus">Zbieranie danych do uczenia czułości.</p><button class="btn big" id="tub">Pokaż dane</button></div>
 <div class="set"><h3>Historia</h3><p class="opis" style="margin:0">Usuwa wszystkie zdarzenia z panelu (pliki zostaną posprzątane automatycznie).</p><button class="btn big" id="clr">Wyczyść historię</button></div>
-<p class="opis" style="text-align:center">Panel kamery v47</p>
+<p class="opis" style="text-align:center">Panel kamery v48</p>
 </section>
 <nav id="nav"><button data-tab="zd"><i>🗂</i><span>Zdarzenia</span></button><button data-tab="live"><i>🎥</i><span>Na żywo</span></button><button data-tab="park"><i>🅿️</i><span>Parking</span></button><button data-tab="prz"><i>🚗</i><span>Przejazdy</span></button><button data-tab="ust"><i>⚙️</i><span>Ustawienia</span></button></nav>
 
@@ -240,7 +240,8 @@ const phUrl=()=>PM.startsWith('os')&&(EV.osoby||[])[+PM.slice(2)]?SN+EV.osoby[+P
 function prRender(){const o=(EV&&EV.osoby)||[];const pr=$('pr');pr.className=o.length>1?'on':'';pr.innerHTML=o.map((f,i)=>`<img src="${SN}${esc(f)}" data-os="${i}" class="${PM=='os'+i?'on':''}">`).join('')}
 const fmt=t=>{t=Math.max(0,t|0);return (t/60|0)+':'+String(t%60).padStart(2,'0')};
 function msg(t){const m=$('vm');m.style.display=t?'flex':'none';m.textContent=t||''}
-function showPhoto(m){if(m)PM=m;zv.pause();zv.style.display='none';zi.style.display='block';$('vc').className='';$('bph').className='btn'+(PM=='crop'?' pri':'');prRender();$('bfu').className='btn'+(PM=='full'?' pri':'');$('bvd').className='btn';msg('');clearTimeout(poll);rz();if(EV){const u=phUrl();if(zi.dataset.u!=u){zi.dataset.u=u;zi.onerror=()=>{zi.onerror=null;zi.src=SN+EV.plik};zi.src=u}}}
+function showPhoto(m){if(m)PM=m;zv.pause();zv.style.display='none';zi.style.display='block';$('vc').className='';$('bph').className='btn'+(PM=='crop'?' pri':'');prRender();$('bfu').className='btn'+(PM=='full'?' pri':'');$('bvd').className='btn';msg('');clearTimeout(poll);rz();if(EV){const u=phUrl();if(zi.dataset.u!=u){zi.dataset.u=u;delete zi.dataset.s;zi.onerror=()=>{zi.onerror=null;zi.src=SN+EV.plik};zi.src=u}phRev()}}
+function phRev(){if(!EV)return;const u=phUrl(),b=EV.b;fetch(u,{method:'HEAD',cache:'no-store'}).then(r=>r.ok?(r.headers.get('last-modified')||'')+'|'+(r.headers.get('content-length')||''):null).catch(()=>null).then(sig=>{if(!sig||!EV||EV.b!=b||phUrl()!=u||zi.dataset.u!=u)return;if(zi.dataset.s===sig)return;const first=zi.dataset.s===undefined;zi.dataset.s=sig;zi.src=u+'?v='+encodeURIComponent(sig)})}
 function showVideo(){if(!EV)return;rz();document.querySelectorAll('#pr img.on').forEach(i=>i.classList.remove('on'));zi.style.display='none';zv.style.display='block';$('bph').className='btn';$('bfu').className='btn';$('bvd').className='btn pri';tryVideo()}
 let VW=null,VSIG='',VT0=0,VB='';
 function vHead(b){return fetch(SN+'e1_v_'+b+'.mp4',{method:'HEAD',cache:'no-store'}).then(r=>r.ok?((r.headers.get('content-length')||'')+'|'+(r.headers.get('last-modified')||'x')):null).catch(()=>null)}
@@ -250,7 +251,7 @@ if(sig){const nw=sig!=VSIG,first=!VSIG;VSIG=sig;bv.textContent='Wideo ✓';
 if(vid&&(first||(nw&&(zv.paused||zv.currentTime<1||zv.ended||(isFinite(zv.duration)&&zv.duration-zv.currentTime<4))))){const url=SN+'e1_v_'+b+'.mp4',ct=first?0:zv.currentTime,pl=first||!zv.paused||zv.ended;zv.dataset.src=url;zv.src=url+'?t='+Date.now();zv.load();if(ct>0)zv.addEventListener('loadedmetadata',()=>{try{zv.currentTime=Math.min(ct,Math.max(0,zv.duration-0.2))}catch(e){}if(pl)zv.play().catch(()=>{})},{once:true});msg('');$('vc').className='on'}}
 else{const s=Math.round((Date.now()-VT0)/1000),t=EV.czas?new Date(String(EV.czas).replace(' ','T')).getTime():NaN,old=!isNaN(t)&&Date.now()-t>600000;
 bv.textContent=old?'Wideo ✗':'Wideo ⏳';if(vid)msg(old?'Brak nagrania z Reolinka dla tego zdarzenia':'Czekam na nagranie z Reolinka… '+s+' s (zwykle ok. 40 s od zdarzenia)')}
-VW=setTimeout(vWatch,vid?1500:sig?5000:1500)})}
+if(!vid&&Date.now()-(window.PHT||0)>6000){window.PHT=Date.now();phRev()}VW=setTimeout(vWatch,vid?1500:sig?5000:1500)})}
 function tryVideo(){clearTimeout(VW);VSIG='';vWatch()}
 zv.addEventListener('ended',()=>{if(EV)vWatch()});
 function openEv(b){const e=ALL.find(x=>x.b==b);

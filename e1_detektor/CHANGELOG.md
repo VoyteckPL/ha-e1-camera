@@ -296,3 +296,6 @@
 
 ## 0.18.7
 - Płynność wideo: znaczniki czasu klipów z kamery (25 kl./s na siatce 30 kl./s, odstępy 33/67 ms) są prostowane do równych 40 ms bez przekodowania. Komenda `napraw_wideo`.
+
+## 0.18.8
+- Panel: zdjęcie w arkuszu zdarzenia sprawdza (HEAD bez cache) czy plik został podmieniony na pełną jakość i przeładowuje go z wersją w adresie; telefon nie zostaje już na starej, niskiej rozdzielczości.
