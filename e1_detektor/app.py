@@ -1161,7 +1161,7 @@ async def analyze(request):
 
                 async def _dg2():
                     try:
-                        _TEST["diag2"] = await asyncio.get_running_loop().run_in_executor(None, diag2_sync, _b)
+                        _TEST["diag2"] = await asyncio.get_running_loop().run_in_executor(None, diag2_sync, _b, float(dane.get("od", -10)), float(dane.get("do", 8)), int(dane.get("fps", 8)))
                     except Exception as _e:
                         log.exception("diag2")
                         _TEST["diag2"] = {"blad": str(_e)}

@@ -260,3 +260,6 @@
 
 ## 0.17.17
 - diag2: niższy próg.
+
+## 0.17.18
+- diag2: parametry okna.
