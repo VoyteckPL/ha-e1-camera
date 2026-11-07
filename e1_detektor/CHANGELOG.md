@@ -254,3 +254,6 @@
 
 ## 0.17.15
 - Dopasowanie pełnej klatki po mapie ruchu (różnica od tła) zamiast surowych pikseli, okno ±3 s.
+
+## 0.17.16
+- diag2 (diagnostyka głównego strumienia).

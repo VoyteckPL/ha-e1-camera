@@ -530,6 +530,34 @@ def diag_sync(b, od_off=-9.0, do_off=7.0, krok=1):
         shutil.rmtree(tmpd, ignore_errors=True)
 
 
+def diag2_sync(b, od_off=-10.0, do_off=8.0, fps=8):
+    """Diagnostyka: energia ruchu (roznica od tla) klatek GLOWNEGO strumienia w oknie, do porownania z lekkim."""
+    t = reolink.czas_zdarzenia(b)
+    t0 = time.mktime(t.timetuple())
+    od, do = t0 + od_off, t0 + do_off
+    k = bufor.okno(od, do, "m")
+    if not k:
+        return {"blad": "brak kawalkow"}
+    ss = max(0.0, od - k[0][0])
+    ts = time.time()
+    r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", "pipe:0", "-ss", f"{ss:.2f}", "-t", f"{do - od:.2f}",
+                        "-vf", f"fps={fps},scale=160:120,format=gray", "-f", "rawvideo", "pipe:1"], input=bufor._scal(k), capture_output=True, timeout=170)
+    n = len(r.stdout) // 19200
+    arr = np.frombuffer(r.stdout[:n * 19200], np.uint8).reshape(n, 120, 160).astype(np.float32)
+    bg = np.median(arr, 0)
+    out = []
+    for i, a in enumerate(arr):
+        m = np.abs(a - bg) > 28
+        ar = float(m.mean())
+        o = {"t": round(od + i / fps - t0, 1), "ar": round(ar, 3)}
+        if ar > 0.002:
+            ys, xs = np.nonzero(m)
+            o["mx"] = round(float(xs.mean()) / 160, 2)
+            o["my"] = round(float(ys.mean()) / 120, 2)
+        out.append(o)
+    return {"t0": t0, "k0": k[0][0] - t0, "sek": round(time.time() - ts, 1), "n": n, "ramki": [o for o in out if o["ar"] > 0.002]}
+
+
 def popraw_kadr_sync(clip, b, n0):
     """Z klipu wybiera klatke z najwieksza liczba osob (razem w jednym kadrze).
 
@@ -1127,6 +1155,18 @@ async def analyze(request):
                         _TEST["diag"] = {"blad": str(_e)}
                 _TEST.pop("diag", None)
                 asyncio.create_task(_dg())
+                return web.json_response({"ok": True})
+            if dane.get("cmd") == "diag2":
+                _b = str(dane.get("b", ""))
+
+                async def _dg2():
+                    try:
+                        _TEST["diag2"] = await asyncio.get_running_loop().run_in_executor(None, diag2_sync, _b)
+                    except Exception as _e:
+                        log.exception("diag2")
+                        _TEST["diag2"] = {"blad": str(_e)}
+                _TEST.pop("diag2", None)
+                asyncio.create_task(_dg2())
                 return web.json_response({"ok": True})
             if dane.get("cmd") == "przelicz":
                 _b = str(dane.get("b", ""))
