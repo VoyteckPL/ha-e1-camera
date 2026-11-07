@@ -248,3 +248,6 @@
 
 ## 0.17.13
 - Komenda `diag` (diagnostyka klatek zdarzenia).
+
+## 0.17.14
+- Pełna klatka dopasowywana obrazem do wybranej klatki lekkiego strumienia (strumienie mają różne zera czasu - szybkie auto trafiało w inny kadr).

@@ -458,14 +458,15 @@ def najlepsza_klatka_sync(b, klasy, granica, t0=None):
                 n = _norm(bx, iw, ih)
                 mx, my = (n[0] + n[2]) / 2, (n[1] + n[3]) / 2
                 dist = math.hypot(mx - cx, (my - cy) * 0.7)
-                kand.append((box_score(bx, iw, ih) * max(0.15, 1.0 - dist * 1.4), od + k / FPS, n, bx[4]))
+                kand.append((box_score(bx, iw, ih) * max(0.15, 1.0 - dist * 1.4), od + k / FPS, n, bx[4], img))
         log.info("bufor: %s skan %d klatek lekkiego strumienia, detekcja %d (%.1f s), kandydatow %d", b, len(files), len(wybor), time.time() - ts, len(kand))
         if not kand:
             return None
         kand.sort(key=lambda x: -x[0])
-        _, tc, n, conf = kand[0]
+        _, tc, n, conf, ref = kand[0]
         pf = SNAP / f"e1_best_{b}.jpg"
-        if not bufor.klatka_pelna(tc, pf):
+        ok, _kosz = bufor.klatka_dopasuj(tc, ref, n, pf)
+        if not ok and not bufor.klatka_pelna(tc, pf):
             return None
         img = Image.open(pf)
         img.load()
