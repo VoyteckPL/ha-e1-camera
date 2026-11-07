@@ -324,3 +324,6 @@
 
 ## 0.18.16
 - Komenda `klip_analiza`: skan całego klipu zdarzenia (osoby i pojazdy), tory ruchu z czasami.
+
+## 0.18.17
+- klip_analiza: log postępu, bez blokady GLOCK, błędy w logu.

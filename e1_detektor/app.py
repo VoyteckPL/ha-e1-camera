@@ -833,10 +833,13 @@ def klip_analiza_sync(b, fps=2):
         files = sorted(Path(tmpd).glob("f_*.jpg"))
         if not files:
             return {"blad": "brak klatek"}
+        log.info("klip_analiza %s: %d klatek, skanuje", b, len(files))
         tory = []
         for kl, nazwa in (("osoba", "osoba"), ("pojazd", "pojazd")):
             tt = []
             for i, f in enumerate(files):
+                if i % 20 == 0:
+                    log.info("klip_analiza %s: %s klatka %d/%d", b, nazwa, i, len(files))
                 im = Image.open(f)
                 im.load()
                 iw, ih = im.size
@@ -1666,8 +1669,12 @@ async def analyze(request):
             if dane.get("cmd") == "klip_analiza":
                 _b = str(dane.get("b", ""))
                 async def _ka():
-                    async with GLOCK:
+                    try:
                         _TEST["ka"] = await asyncio.get_running_loop().run_in_executor(None, klip_analiza_sync, _b)
+                        log.info("klip_analiza %s: gotowe, tory %d", _b, len((_TEST["ka"] or {}).get("tory", [])))
+                    except Exception:
+                        log.exception("klip_analiza %s", _b)
+                _TEST["ka"] = None
                 asyncio.create_task(_ka())
                 return web.json_response({"ok": True})
             if dane.get("cmd") == "bufor_wynik":
