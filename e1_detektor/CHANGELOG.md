@@ -242,3 +242,6 @@
 
 ## 0.17.11
 - Najlepsza klatka przejazdu: okno szukania zaczyna się 8 s PRZED zdarzeniem (kamera zgłasza zdarzenie z opóźnieniem, auto bywało już poza kadrem), do 5 kandydatów zamiast 4.
+
+## 0.17.12
+- Komenda `przelicz`: ponowny wybór najlepszej klatki dla zdarzenia z bufora (do 45 min wstecz).

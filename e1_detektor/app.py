@@ -1077,6 +1077,19 @@ async def analyze(request):
                         shutil.rmtree(_d, ignore_errors=True)
                     return _r
                 return web.json_response({"ok": True, "bench": await asyncio.get_running_loop().run_in_executor(None, _bench)})
+            if dane.get("cmd") == "przelicz":
+                _b = str(dane.get("b", ""))
+                if not _b or "/" in _b:
+                    return web.json_response({"ok": False, "blad": "b"})
+                _ld = asyncio.get_running_loop()
+                _w = await _ld.run_in_executor(None, najlepsza_klatka_sync, _b, KLASY["pojazd"], "")
+                if not _w:
+                    return web.json_response({"ok": False, "blad": "brak klatki (bufor?)"})
+                _img, _bx, _pf = _w
+                _iw, _ih = _img.size
+                _best, _rect, _n = wybierz_kadr(_bx, _iw, _ih)
+                _cb = await _ld.run_in_executor(None, zapisz_kadr, _img, _rect, SNAP / f"e1_crop_{_b}.jpg")
+                return web.json_response({"ok": True, "crop": f"e1_crop_{_b}.jpg", "pelny": _pf, "box": [round(v) for v in _best[:4]], "crop_box": list(_cb), "conf": round(_best[4], 3)})
             if dane.get("cmd") == "bufor_wynik":
                 return web.json_response({"ok": True, "wynik": _TEST})
             if dane.get("cmd") == "sd_test":
