@@ -217,3 +217,6 @@
 
 ## 0.17.3
 - Bufor: drugi, lekki strumień (sub) do szybkiego szukania najlepszej chwili; pełna klatka i klip nadal z głównego strumienia.
+
+## 0.17.4
+- Wybór klatki: wstępny wybór po ruchu względem tła, detekcja tylko na kilku klatkach (zamiast wszystkich); log czasu składania klipu.

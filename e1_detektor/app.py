@@ -418,9 +418,34 @@ def najlepsza_klatka_sync(b, klasy, granica, t0=None):
             return None
         cx, cy = _cel_drogi(strefy.wczytaj(granica))
         scan = SESS_T or SESS
+        # 1) tani wstepny wybor: ruch wzgledem tla (mediana klatek) - ktore klatki maja ruchomy obiekt najblizej srodka drogi
+        male = []
+        for f in files:
+            im = Image.open(f)
+            im.load()
+            male.append(np.asarray(im.convert("L").resize((80, 60)), dtype=np.float32))
+        bg = np.median(np.stack(male), 0)
+        ocena_ruchu = []
+        for k, a in enumerate(male):
+            m = np.abs(a - bg) > 28
+            ar = float(m.mean())
+            if ar < 0.004 or ar > 0.6:
+                continue
+            ys, xs = np.nonzero(m)
+            mx, my = float(xs.mean()) / 80, float(ys.mean()) / 60
+            ocena_ruchu.append((min(ar * 20, 1.0) * max(0.15, 1.0 - math.hypot(mx - cx, (my - cy) * 0.7) * 1.4), k))
+        ocena_ruchu.sort(reverse=True)
+        wybor = []
+        for _, k in ocena_ruchu:
+            if all(abs(k - j) >= 2 for j in wybor):
+                wybor.append(k)
+            if len(wybor) >= 4:
+                break
+        if not wybor:  # brak wyraznego ruchu: kilka rownomiernie rozlozonych klatek
+            wybor = sorted({int(i * (len(files) - 1) / 4) for i in range(5)})
         kand = []
-        for k, f in enumerate(files):
-            img = Image.open(f)
+        for k in wybor:
+            img = Image.open(files[k])
             img.load()
             iw, ih = img.size
             boxes = detect(img, klasy, MIN_CONF * 0.9, sess=scan)
@@ -431,7 +456,7 @@ def najlepsza_klatka_sync(b, klasy, granica, t0=None):
                 mx, my = (n[0] + n[2]) / 2, (n[1] + n[3]) / 2
                 dist = math.hypot(mx - cx, (my - cy) * 0.7)
                 kand.append((box_score(bx, iw, ih) * max(0.15, 1.0 - dist * 1.4), od + k / FPS, n, bx[4]))
-        log.info("bufor: %s skan %d klatek lekkiego strumienia (%.1f s), kandydatow %d", b, len(files), time.time() - ts, len(kand))
+        log.info("bufor: %s skan %d klatek lekkiego strumienia, detekcja %d (%.1f s), kandydatow %d", b, len(files), len(wybor), time.time() - ts, len(kand))
         if not kand:
             return None
         kand.sort(key=lambda x: -x[0])

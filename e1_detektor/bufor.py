@@ -190,9 +190,10 @@ async def klip(b, out: Path, t0=None):
             cov = k[-1][1] - k[0][0]
             pelny = k[-1][1] >= do
             if cov >= pub + 3 or (pelny and cov > pub):
+                tz_ = time.time()
                 if await loop.run_in_executor(None, zloz, k, out):
                     pub = cov
-                    log.info("bufor: %s klip %.0f s (%d kawalkow) po %.1f s od przyjscia zdarzenia", b, cov, len(k), time.time() - start)
+                    log.info("bufor: %s klip %.0f s (%d kawalkow), skladanie %.1f s, %.1f s od przyjscia zdarzenia", b, cov, len(k), time.time() - tz_, time.time() - start)
                     if pelny:
                         reolink.GOTOWE.add(b)
                         return True
