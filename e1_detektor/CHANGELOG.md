@@ -357,3 +357,6 @@
 
 ## 0.18.27
 - Bufor czyta http-flv (zalecenie Frigate dla Reolink), przy bledzie wraca na RTSP
+
+## 0.18.28
+- Dopasowanie klatki: okno +-6 s i automatyczna korekta stalego przesuniecia glowny/lekki (mediana)

@@ -294,13 +294,16 @@ def klatka_pelna(t, out: Path):
     return False
 
 
-def klatka_dopasuj(t, fg_ref, box, out: Path, pol=3.0, fps=8):
+def klatka_dopasuj(t, fg_ref, box, out: Path, pol=6.0, fps=8):
     """Pelna klatka z glownego strumienia, na ktorej ruchomy obiekt jest tam samo co na klatce `fg_ref` z lekkiego.
 
     Strumienie maja rozne zera czasu (i skok ~1 s miedzy kawalkami), wiec samo t bywa przesuniete - szybkie auto to juz inny kadr.
     fg_ref: mapa ruchu 160x120 (0-1) klatki lekkiego strumienia (roznica od tla). box: ramka auta w ulamkach 0-1.
     Zwraca (True, podobienstwo) lub (False, None).
     """
+    t_in = t
+    dm = _stan.get("dm", [])
+    t = t + (float(np.median(dm)) if len(dm) >= 3 else 0.0)  # stale przesuniecie glowny-lekki wyliczone z poprzednich zdarzen
     od, do = t - pol, t + pol
     k = okno(od, do, "m")
     if not k:
@@ -329,7 +332,10 @@ def klatka_dopasuj(t, fg_ref, box, out: Path, pol=3.0, fps=8):
     r2 = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", "pipe:0", "-ss", f"{ss + i / fps:.2f}", "-frames:v", "1",
                          "-q:v", "3", str(out)], input=dane, capture_output=True, timeout=120)
     ok = r2.returncode == 0 and out.exists() and out.stat().st_size > 1000
-    log.info("bufor dopasowanie klatki: %d klatek, najlepsza %d (%+.1f s od czasu lekkiego), podobienstwo %.2f", n, i, i / fps - pol, pod[i])
+    off = (t - t_in) + i / fps - pol
+    if pod[i] >= 0.75 and 0.5 < i < n - 1.5:  # tylko pewne dopasowania, nie na brzegu okna
+        _stan["dm"] = (dm + [off])[-15:]
+    log.info("bufor dopasowanie klatki: %d klatek, najlepsza %d (%+.1f s od czasu lekkiego), podobienstwo %.2f, mediana przesuniecia %+.1f s", n, i, off, pod[i], float(np.median(_stan.get("dm", [0.0]))))
     return ok, pod[i]
 
 
