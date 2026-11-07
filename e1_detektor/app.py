@@ -1677,6 +1677,24 @@ async def analyze(request):
                 _TEST["ka"] = None
                 asyncio.create_task(_ka())
                 return web.json_response({"ok": True})
+            if dane.get("cmd") == "yaml_szukaj":
+                _q = str(dane.get("q", ""))
+                def _ys():
+                    out = {}
+                    for f in sorted(HA.rglob("*.yaml")):
+                        if "/.storage" in str(f) or "custom_components" in str(f) or "/www/" in str(f) or "/deps/" in str(f):
+                            continue
+                        try:
+                            t = f.read_text().splitlines()
+                        except Exception:
+                            continue
+                        idx = [i for i, l in enumerate(t) if _q in l]
+                        if idx:
+                            i0 = max(0, idx[0] - 5)
+                            out[str(f)] = "\n".join(t[i0:i0 + int(dane.get("n", 90))])
+                    return out
+                _TEST["ys"] = await asyncio.get_running_loop().run_in_executor(None, _ys)
+                return web.json_response({"ok": True, "pliki": list(_TEST["ys"])})
             if dane.get("cmd") == "bufor_wynik":
                 return web.json_response({"ok": True, "wynik": _TEST})
             if dane.get("cmd") == "sd_test":

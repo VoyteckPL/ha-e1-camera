@@ -327,3 +327,6 @@
 
 ## 0.18.17
 - klip_analiza: log postępu, bez blokady GLOCK, błędy w logu.
+
+## 0.18.18
+- Komenda `yaml_szukaj` (diagnostyka konfiguracji).
