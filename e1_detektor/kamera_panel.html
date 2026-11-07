@@ -43,7 +43,7 @@ h2{font-size:13px;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;
 .ti:before,.gap:before{content:'';position:absolute;left:55px;top:0;bottom:0;width:2px;background:var(--bd)}
 .ti .tm{position:absolute;left:0;top:18px;width:46px;text-align:right;font:12px ui-monospace,monospace;color:var(--mu)}
 .ti .dot{position:absolute;left:50px;top:20px;width:12px;height:12px;border-radius:50%;border:3px solid var(--ac);background:var(--cd);z-index:1}
-.gap{position:relative;padding:5px 0 5px 70px;font-size:12px;color:var(--mu)}
+.sub{opacity:.85;margin-left:14px}.gap{position:relative;padding:5px 0 5px 70px;font-size:12px;color:var(--mu)}
 .tc{display:flex;gap:10px;background:var(--cd);border:1px solid var(--bd);border-radius:12px;padding:8px;margin:5px 0}
 .tc img.cr{object-fit:contain}.tc img{width:84px;height:63px;flex:none;object-fit:cover;border-radius:8px;background:#000;cursor:pointer;display:block}
 .tc .body{padding:0;gap:4px}
@@ -126,7 +126,7 @@ body[data-tab=zd] #nav [data-tab=zd],body[data-tab=live] #nav [data-tab=live],bo
 <div class="set"><h3>Oznaczanie aut</h3><p class="opis" style="margin:0">Ręczne oznaczanie aut na podjeździe (Kia, Seat, Obce…) w zdarzeniach z samochodem. Domyślnie wyłączone, bo auta na drodze rozpoznaje Gemini w zakładce Przejazdy. Ustawienie dotyczy tego urządzenia.</p><button class="btn big" id="ozb"></button></div>
 <div class="set"><h3>Strojenie</h3><p class="opis" style="margin:0" id="tus">Zbieranie danych do uczenia czułości.</p><button class="btn big" id="tub">Pokaż dane</button></div>
 <div class="set"><h3>Historia</h3><p class="opis" style="margin:0">Usuwa wszystkie zdarzenia z panelu (pliki zostaną posprzątane automatycznie).</p><button class="btn big" id="clr">Wyczyść historię</button></div>
-<p class="opis" style="text-align:center">Panel kamery v50</p>
+<p class="opis" style="text-align:center">Panel kamery v51</p>
 </section>
 <nav id="nav"><button data-tab="zd"><i>🗂</i><span>Zdarzenia</span></button><button data-tab="live"><i>🎥</i><span>Na żywo</span></button><button data-tab="park"><i>🅿️</i><span>Parking</span></button><button data-tab="prz"><i>🚗</i><span>Przejazdy</span></button><button data-tab="ust"><i>⚙️</i><span>Ustawienia</span></button></nav>
 
@@ -156,7 +156,7 @@ const KAT=[['osoba','Osoby','Osoba'],['pojazd','Samochody','Pojazd'],['zwierze',
 const NAZ={Osoba:'Osoba',Pojazd:'Samochód','Zwierzę':'Zwierzę'};
 const KOL=['#2563eb','#16a34a','#f59e0b','#dc2626','#8b5cf6','#0891b2','#db2777','#65a30d'];
 const POZA='poza',DOM={n:1,a:'00:00',b:'23:59',d:'1111111',m:0,c:60,s:1,t:0,h:1};
-let cur='wszystko',last='',ALL=[],TV=false;
+let cur='wszystko',last='',ALL=[],TV=false;const GOPEN=new Set();
 try{cur=localStorage.getItem('kf')||cur;const kv=localStorage.getItem('kv');TV=kv?kv=='t':innerWidth<700}catch(e){}
 const H=()=>{try{return parent.document.querySelector('home-assistant').hass}catch(e){return null}};
 const $=id=>document.getElementById(id);
@@ -195,13 +195,18 @@ $('fl').innerHTML=F.map(f=>`<button class="chip${f[0]==cur?' on':''}" data-f="${
 const list=ALL.filter(F.find(f=>f[0]==cur)[2]);
 if(!list.length){$('m').innerHTML='<p class="empty">Brak zdarzeń.</p>';return}
 let out='',g='',prev=null;
-for(const e of list){const d=day(e.czas);if(d!=g){if(g)out+='</div>';out+=`<h2>${d}</h2><div class="${TV?'tl':'grid'}">`;g=d;prev=null}
-const tg=(e.ruch?`<span class="tag p">${esc(e.ruch)}</span>`:'')+`<span class="tag"><span class="dotc" style="background:${zcol(e.lok)}"></span>${esc(e.lok||'')}</span>${+e.conf>0?`<span class="tag">${Math.round(e.conf*100)}%</span>`:''}`;
+const gm=(a,b)=>(new Date(a.replace(' ','T'))-new Date(b.replace(' ','T')))/60000;
+const GR=[];for(const e of list){const p=GR[GR.length-1];if(p&&e.rodzaj!='Pojazd'&&p.e.rodzaj==e.rodzaj&&(p.e.lok||'')==(e.lok||'')&&day(p.e.czas)==day(e.czas)&&gm(p.last.czas,e.czas)<=5){p.m.push(e);p.last=e}else GR.push({e,m:[e],last:e})}
+const card=(e,gr,sub)=>{const n=gr?gr.m.length:1,op=gr&&GOPEN.has(e.b);
+const tg=(e.ruch?`<span class="tag p">${esc(e.ruch)}</span>`:'')+`<span class="tag"><span class="dotc" style="background:${zcol(e.lok)}"></span>${esc(e.lok||'')}</span>${+e.conf>0?`<span class="tag">${Math.round(e.conf*100)}%</span>`:''}`+(n>1?`<button class="btn sm" data-gt="${esc(e.b)}">${op?'▴':'▾'} ${n} zdarzeń</button>`:'');
 const im=`<img${(e.pojazdy||[]).length||!e.crop?'':' class="cr"'} loading="lazy" src="${esc(img(e))}" data-e="${esc(e.b)}" onerror="this.onerror=null;this.src='${SN}${esc(e.plik)}'">`;
-const rw='';
-if(TV){const gp=prev?gapTxt(prev,e.czas):'';if(gp)out+=`<div class="gap">${gp}</div>`;prev=e.czas;
-out+=`<div class="ti"><span class="tm">${esc(e.czas.slice(11,16))}</span><span class="dot"></span><div class="tc">${im}<div class="body"><div class="top"><span>${NAZ[e.rodzaj]||esc(e.rodzaj)}</span></div><div class="tags">${tg}</div>${rw}</div></div></div>`}
-else out+=`<div class="card">${im}<div class="body"><div class="top"><span>${NAZ[e.rodzaj]||esc(e.rodzaj)}</span><span class="time">${esc(e.czas.slice(11,16))}</span></div><div class="tags">${tg}</div>${rw}</div></div>`}
+const tm=n>1?esc(gr.last.czas.slice(11,16))+'–'+esc(e.czas.slice(11,16)):esc(e.czas.slice(11,16));
+if(TV)return `<div class="ti${sub?' sub':''}"><span class="tm">${tm}</span><span class="dot"></span><div class="tc">${im}<div class="body"><div class="top"><span>${NAZ[e.rodzaj]||esc(e.rodzaj)}</span></div><div class="tags">${tg}</div></div></div></div>`;
+return `<div class="card${sub?' sub':''}">${im}<div class="body"><div class="top"><span>${NAZ[e.rodzaj]||esc(e.rodzaj)}</span><span class="time">${tm}</span></div><div class="tags">${tg}</div></div></div>`};
+for(const gr of GR){const e=gr.e,d=day(e.czas);if(d!=g){if(g)out+='</div>';out+=`<h2>${d}</h2><div class="${TV?'tl':'grid'}">`;g=d;prev=null}
+if(TV){const gp=prev?gapTxt(prev,e.czas):'';if(gp)out+=`<div class="gap">${gp}</div>`;prev=gr.last.czas}
+out+=card(e,gr,false);
+if(gr.m.length>1&&GOPEN.has(e.b))for(const x of gr.m)out+=card(x,null,true)}
 $('m').innerHTML=out+'</div>'}
 
 /* ---------- zoom (obraz i wideo) ---------- */
@@ -420,6 +425,7 @@ document.addEventListener('pointerup',()=>{lvDrag=false});
 document.addEventListener('click',ev=>{const t=ev.target.closest('button,img')||ev.target,d=t.dataset||{};
 if(d.f){cur=d.f;try{localStorage.setItem('kf',cur)}catch(_){}last='';render()}
 else if(t.id=='vw'){TV=!TV;try{localStorage.setItem('kv',TV?'t':'g')}catch(_){}last='';render()}
+else if(d.gt){if(GOPEN.has(d.gt))GOPEN.delete(d.gt);else GOPEN.add(d.gt);last='';render()}
 else if(d.e){openEv(d.e)}
 else if(d.v){openEv(d.v);showVideo()}
 else if(d.tog){if(LABOPEN.has(d.tog))LABOPEN.delete(d.tog);else LABOPEN.add(d.tog);last='';render();if(EV&&EV.b==d.tog)auRender()}

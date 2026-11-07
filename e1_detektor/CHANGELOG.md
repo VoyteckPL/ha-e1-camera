@@ -311,3 +311,6 @@
 
 ## 0.18.12
 - Log torów ruchu w strefie Droga (diagnostyka wielu aut).
+
+## 0.18.13
+- Panel v51: kolejne zdarzenia tego samego rodzaju (poza pojazdami) w tej samej strefie, oddzielone do 5 min, składają się w jedną kartę z zakresem godzin i licznikiem; klik rozwija pojedyncze.
