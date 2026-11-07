@@ -345,3 +345,6 @@
 
 ## 0.18.23
 - Brak nakladek z nazwami aut na zdjeciach (rysuj wylaczone); cmd bez_etykiet czyści istniejące
+
+## 0.18.24
+- Po restarcie wpisy Przejazdow zawieszone w "Analizuje" sa przetwarzane ponownie

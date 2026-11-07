@@ -748,6 +748,19 @@ async def przejazd_wpis(b, czekaj=True, ts=None):
         await pz_ustaw(b, status="blad", blad=str(e)[:120], mini=f"e1_pz_{b}.jpg" if (SNAP / f"e1_pz_{b}.jpg").exists() else "")
 
 
+async def pz_wznow():
+    """Po restarcie add-ona: wpisy zawieszone w 'analiza' przetwarza ponownie (Gemini na dostepnym wycinku)."""
+    await asyncio.sleep(20)
+    for e in pz_wczytaj():
+        if e.get("status") == "analiza" and (SNAP / f"e1_crop_{e['b']}.jpg").exists():
+            try:
+                await przejazd_wpis(e["b"], czekaj=False, ts=e.get("ts"))
+            except Exception:
+                log.exception("pz_wznow %s", e.get("b"))
+        elif e.get("status") == "analiza":
+            await pz_ustaw(e["b"], status="blad", blad="brak wycinka po restarcie")
+
+
 def dopieszcz_sync(b, klasy, k=None):
     """Po nagraniu z kamery: znajduje w nim klatke z autem tak jak na wybranej klatce lekkiego strumienia i podmienia snap/wycinek na pelna jakosc."""
     k = k or b
@@ -2288,6 +2301,7 @@ async def on_start(app):
     usun_stare()
     app["sprz"] = asyncio.create_task(sprzatanie())
     app["skan"] = asyncio.create_task(skan_petla())
+    app["pz_wznow"] = asyncio.create_task(pz_wznow())
     app["bufor"] = asyncio.create_task(bufor.petla("m"))
     app["bufor_s"] = asyncio.create_task(bufor.petla("s"))
 
