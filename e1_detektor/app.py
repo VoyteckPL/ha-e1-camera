@@ -416,12 +416,15 @@ def najlepsza_klatka_sync(b, klasy, granica, t0=None):
     ts = time.time()
     FPS = 3
     try:
-        od = t0 - PRZED_S  # zdarzenie z kamery przychodzi z opoznieniem - auto bywa juz w kadrze (lub za nim) przed t0
-        do = min(t0 + 5.5, time.time() - 3.0)
+        pojazd = klasy == KLASY["pojazd"]
+        # zdarzenie z kamery przychodzi z opoznieniem - auto bywa juz w kadrze (lub za nim) przed t0; osoby i zwierzeta ida wolniej, okno krotsze
+        od = t0 - (PRZED_S if pojazd else 3.0)
+        do = min(t0 + (5.5 if pojazd else 3.5), time.time() - 3.0)
         files = bufor.klatki(od, do, FPS, tmpd, pre="s")
         if not files:
             return None
-        cx, cy = _cel_drogi(strefy.wczytaj(granica))
+        cx, cy = _cel_drogi(strefy.wczytaj(granica)) if pojazd else (0.5, 0.55)
+        wag = 1.4 if pojazd else 0.7  # jak bardzo liczy sie bycie na srodku (auto: srodek drogi, osoba/zwierze: glownie cala w kadrze)
         scan = SESS_T or SESS
         # 1) tani wstepny wybor: ruch wzgledem tla (mediana klatek) - ktore klatki maja ruchomy obiekt najblizej srodka drogi
         male = []
@@ -440,7 +443,7 @@ def najlepsza_klatka_sync(b, klasy, granica, t0=None):
             ys, xs = np.nonzero(m)
             mx, my = float(xs.mean()) / 80, float(ys.mean()) / 60
             traj.append((k, mx, my))
-            ocena_ruchu.append((min(ar * 20, 1.0) * max(0.15, 1.0 - math.hypot(mx - cx, (my - cy) * 0.7) * 1.4), k))
+            ocena_ruchu.append((min(ar * 20, 1.0) * max(0.15, 1.0 - math.hypot(mx - cx, (my - cy) * 0.7) * wag), k))
         ocena_ruchu.sort(reverse=True)
         KIER[b] = kierunek_z_ruchu(traj)
         wybor = []
@@ -463,7 +466,7 @@ def najlepsza_klatka_sync(b, klasy, granica, t0=None):
                 n = _norm(bx, iw, ih)
                 mx, my = (n[0] + n[2]) / 2, (n[1] + n[3]) / 2
                 dist = math.hypot(mx - cx, (my - cy) * 0.7)
-                kand.append((box_score(bx, iw, ih) * max(0.15, 1.0 - dist * 1.4), od + k / FPS, n, bx[4], k))
+                kand.append((box_score(bx, iw, ih) * max(0.15, 1.0 - dist * wag), od + k / FPS, n, bx[4], k))
         log.info("bufor: %s skan %d klatek lekkiego strumienia, detekcja %d (%.1f s), kandydatow %d", b, len(files), len(wybor), time.time() - ts, len(kand))
         if not kand:
             return None
@@ -1468,10 +1471,10 @@ async def analyze(request):
     asyncio.create_task(bufor.klip(b, SNAP / f"e1_v_{b}.mp4"))  # klip z bufora: od razu, dokleja sie w trakcie
     async with LOCK:
         wynik = zapas = None
-        if rodzaj == "pojazd" and bufor.gotowy("m") and bufor.gotowy("s"):
+        if bufor.gotowy("m") and bufor.gotowy("s"):
             tz0 = reolink.czas_zdarzenia(b)
             if tz0:
-                await bufor.czekaj(min(time.mktime(tz0.timetuple()) + 4.0, time.time() + 6), 7.0)
+                await bufor.czekaj(min(time.mktime(tz0.timetuple()) + (4.0 if rodzaj == "pojazd" else 3.5), time.time() + 6), 7.0)
             try:
                 wynik = await loop.run_in_executor(None, najlepsza_klatka_sync, b, klasy, granica)
             except Exception:

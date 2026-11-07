@@ -275,3 +275,6 @@
 
 ## 0.18.0
 - Nowa zakładka „Przejazdy”: auta jadące drogą z godziną, kierunkiem (z ruchu w kadrze) i rozpoznaniem marki/modelu/koloru/typu przez Gemini (ai_task.google_ai_task), miniatury trzymane 30 dni.
+
+## 0.18.1
+- Osoby i zwierzęta też przez silnik bufora: najlepsza klatka z lekkiego strumienia (cała postać w kadrze), potem podmiana na pełną jakość z nagrania kamery. Gdy bufor nic nie znajdzie, stara ścieżka (zdjęcie z kamery).
