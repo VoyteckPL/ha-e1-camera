@@ -401,6 +401,7 @@ def _cel_drogi(cfg):
 
 
 PRZED_S = 8.0
+PEND = {}  # b -> (czas klatki, mapa ruchu, ramka) do podmiany na pelna klatke z nagrania kamery
 
 
 def najlepsza_klatka_sync(b, klasy, granica, t0=None):
@@ -467,11 +468,12 @@ def najlepsza_klatka_sync(b, klasy, granica, t0=None):
         pf = SNAP / f"e1_best_{b}.jpg"
         st160 = np.stack([np.asarray(Image.open(f).convert("L").resize((160, 120)), dtype=np.float32) for f in files])
         fg_ref = np.clip(np.abs(st160[kref] - np.median(st160, 0)) / 64.0, 0, 1)
-        ok, _kosz = bufor.klatka_dopasuj(tc, fg_ref, n, pf)
-        if not ok and not bufor.klatka_pelna(tc, pf):
-            return None
-        img = Image.open(pf)
+        # glowny strumien z bufora bywa rozjechany czasowo (i nie zawsze ma auto) - obraz bierzemy z lekkiego, a po nagraniu z kamery podmieniamy na pelna jakosc
+        img = Image.open(files[kref])
         img.load()
+        img = img.convert("RGB")
+        img.save(pf, quality=92)
+        PEND[b] = (tc, fg_ref, list(n))
         iw, ih = img.size
         wybrany = None
         # pelny model na pelnej klatce: ramka najblizsza tej z lekkiego strumienia
@@ -492,6 +494,73 @@ def najlepsza_klatka_sync(b, klasy, granica, t0=None):
         return img, [wybrany], pf.name
     finally:
         shutil.rmtree(tmpd, ignore_errors=True)
+
+
+def dopieszcz_sync(b, klasy):
+    """Po nagraniu z kamery: znajduje w nim klatke z autem tak jak na wybranej klatce lekkiego strumienia i podmienia snap/wycinek na pelna jakosc."""
+    tc, fg_ref, n = PEND.pop(b)
+    fs = reolink.START.get(b)
+    clip = SNAP / f"e1_v_{b}.mp4"
+    if fs is None or not clip.exists():
+        return False
+    off = tc - time.mktime(fs.timetuple())
+    pol, fps = 3.0, 6
+    od = max(0.0, off - pol)
+    r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{od:.2f}", "-t", f"{2 * pol:.2f}", "-i", str(clip),
+                        "-vf", f"fps={fps},scale=160:120,format=gray", "-f", "rawvideo", "pipe:1"], capture_output=True, timeout=120)
+    m = len(r.stdout) // 19200
+    if m < 3:
+        return False
+    arr = np.frombuffer(r.stdout[:m * 19200], np.uint8).reshape(m, 120, 160).astype(np.float32)
+    bg = np.median(arr, 0)
+    x0, y0, x1, y1 = n
+    ex, ey = max(0.08, (x1 - x0) * 0.8), max(0.08, (y1 - y0) * 0.8)
+    ax0, ax1 = int(max(0.0, x0 - ex) * 160), int(min(1.0, x1 + ex) * 160) + 1
+    ay0, ay1 = int(max(0.0, y0 - ey) * 120), int(min(1.0, y1 + ey) * 120) + 1
+    ref = fg_ref[ay0:ay1, ax0:ax1]
+    nr = float(np.sqrt((ref * ref).sum())) + 1e-6
+    pod = []
+    for fr in arr:
+        fg = np.clip(np.abs(fr - bg) / 64.0, 0, 1)[ay0:ay1, ax0:ax1]
+        pod.append(float((fg * ref).sum() / (np.sqrt((fg * fg).sum()) * nr + 1e-6)))
+    i = int(np.argmax(pod))
+    log.info("dopieszczanie %s: klatek %d, najlepsza %d (%+.1f s od oczekiwanej), podobienstwo %.2f", b, m, i, od + i / fps - off, pod[i])
+    if pod[i] < 0.2:
+        return False
+    pf = SNAP / f"e1_best_{b}.jpg"
+    tmp = SNAP / f"e1_best_{b}.tmp.jpg"
+    r2 = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{od + i / fps:.2f}", "-i", str(clip), "-frames:v", "1", "-q:v", "2", str(tmp)], capture_output=True, timeout=120)
+    if r2.returncode != 0 or not tmp.exists() or tmp.stat().st_size < 1000:
+        return False
+    img = Image.open(tmp)
+    img.load()
+    img = img.convert("RGB")
+    iw, ih = img.size
+    sx = [x0 * iw, y0 * ih, x1 * iw, y1 * ih]
+    boxes = detect(img, klasy, MIN_CONF)
+    boxes = ruchome(boxes, iw, ih, b) or boxes
+    wyb = None
+    if boxes:
+        kb = max(boxes, key=lambda x: _iou(x[:4], sx))
+        if _iou(kb[:4], sx) > 0.25:
+            wyb = kb
+    if wyb is None:
+        wyb = (*sx, 0.5)
+    best, rect, _n = wybierz_kadr([wyb], iw, ih)
+    zapisz_kadr(img, rect, SNAP / f"e1_crop_{b}.jpg")
+    tmp.replace(pf)
+    log.info("dopieszczanie %s: podmieniono snap i wycinek na klatke w pelnej jakosci (%dx%d)", b, iw, ih)
+    return True
+
+
+async def rl_i_dopieszcz(b, rodzaj, klasy):
+    ok = await reolink.reolink_wideo(b, rodzaj, SNAP / f"e1_v_{b}.mp4", MEDIA, przygotuj_wideo_sync)
+    if ok and b in PEND:
+        try:
+            await asyncio.get_running_loop().run_in_executor(None, dopieszcz_sync, b, klasy)
+        except Exception:
+            log.exception("dopieszczanie %s", b)
+    PEND.pop(b, None)
 
 
 def diag_sync(b, od_off=-9.0, do_off=7.0, krok=1):
@@ -1177,10 +1246,17 @@ async def analyze(request):
                 if not _w:
                     return web.json_response({"ok": False, "blad": "brak klatki (bufor?)"})
                 _img, _bx, _pf = _w
+                _dop = None
+                if dane.get("fs") and _b in PEND:
+                    _tb = reolink.czas_zdarzenia(_b)
+                    reolink.START[_b] = datetime.combine(_tb.date(), datetime.strptime(str(dane["fs"]), "%H:%M:%S").time())
+                    _dop = await _ld.run_in_executor(None, dopieszcz_sync, _b, KLASY["pojazd"])
+                    if _dop:
+                        return web.json_response({"ok": True, "dopieszczone": True, "crop": f"e1_crop_{_b}.jpg", "pelny": _pf})
                 _iw, _ih = _img.size
                 _best, _rect, _n = wybierz_kadr(_bx, _iw, _ih)
                 _cb = await _ld.run_in_executor(None, zapisz_kadr, _img, _rect, SNAP / f"e1_crop_{_b}.jpg")
-                return web.json_response({"ok": True, "crop": f"e1_crop_{_b}.jpg", "pelny": _pf, "box": [round(v) for v in _best[:4]], "crop_box": list(_cb), "conf": round(_best[4], 3)})
+                return web.json_response({"ok": True, "crop": f"e1_crop_{_b}.jpg", "pelny": _pf, "box": [round(v) for v in _best[:4]], "crop_box": list(_cb), "conf": round(_best[4], 3), "dopieszczone": _dop})
             if dane.get("cmd") == "bufor_wynik":
                 return web.json_response({"ok": True, "wynik": _TEST})
             if dane.get("cmd") == "sd_test":
@@ -1323,7 +1399,7 @@ async def analyze(request):
         hm2 = (datetime.now(tz) if tz else datetime.now()).strftime("%H:%M")
         asyncio.create_task(sledz_pojazd(b, res["strefa"], hm2, granica, res.get("pelny", "")))
     asyncio.create_task(przygotuj_wideo(b))
-    asyncio.create_task(reolink.reolink_wideo(b, rodzaj, SNAP / f"e1_v_{b}.mp4", MEDIA, przygotuj_wideo_sync))
+    asyncio.create_task(rl_i_dopieszcz(b, rodzaj, klasy))
     log.info("analiza %s %s -> %s", b, rodzaj, {k: res.get(k) for k in ("found", "conf", "strefa", "powiadom", "historia", "zrodlo", "czas")})
     return web.json_response(res)
 

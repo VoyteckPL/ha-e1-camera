@@ -125,6 +125,7 @@ async def pobierz(ha, mid, cel: Path):
 
 CONV = asyncio.Lock()
 GOTOWE = set()  # zdarzenia, dla ktorych jest juz wideo z Reolinka
+START = {}  # b -> poczatek nagrania Reolinka (datetime, czas lokalny)
 
 
 async def reolink_wideo(b, kat, out: Path, media: Path, konwertuj, limit=300):
@@ -150,6 +151,7 @@ async def reolink_wideo(b, kat, out: Path, media: Path, konwertuj, limit=300):
                             ok = await asyncio.get_running_loop().run_in_executor(None, konwertuj, raw, out)
                         raw.unlink(missing_ok=True)
                         if ok:
+                            START[b] = f["fs"]
                             GOTOWE.add(b)
                             log.info("wideo reolink gotowe %s (%s, %.0f s, po %.0f s)", out.name, f["tytul"], d, time.time() - start)
                             return True

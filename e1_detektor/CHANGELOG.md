@@ -269,3 +269,6 @@
 
 ## 0.17.20
 - diag2: tylko klatki z ruchem.
+
+## 0.17.21
+- Snap przejazdu z klatki lekkiego strumienia (główny bufor bywa rozjechany/bez auta), po nagraniu z kamery podmiana na pełną jakość (dopasowanie po ruchu w jej własnej osi czasu).
