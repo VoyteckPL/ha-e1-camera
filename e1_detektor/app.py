@@ -400,6 +400,9 @@ def _cel_drogi(cfg):
     return (0.5, 0.5)
 
 
+PRZED_S = 8.0
+
+
 def najlepsza_klatka_sync(b, klasy, granica, t0=None):
     """Szuka na lekkim strumieniu (bufor 's') chwili, gdy pojazd jest najblizej srodka drogi, a pelna klatke bierze z glownego."""
     if t0 is None:
@@ -411,7 +414,7 @@ def najlepsza_klatka_sync(b, klasy, granica, t0=None):
     ts = time.time()
     FPS = 3
     try:
-        od = t0 - 1.5
+        od = t0 - PRZED_S  # zdarzenie z kamery przychodzi z opoznieniem - auto bywa juz w kadrze (lub za nim) przed t0
         do = min(t0 + 5.5, time.time() - 3.0)
         files = bufor.klatki(od, do, FPS, tmpd, pre="s")
         if not files:
@@ -439,7 +442,7 @@ def najlepsza_klatka_sync(b, klasy, granica, t0=None):
         for _, k in ocena_ruchu:
             if all(abs(k - j) >= 2 for j in wybor):
                 wybor.append(k)
-            if len(wybor) >= 4:
+            if len(wybor) >= 5:
                 break
         if not wybor:  # brak wyraznego ruchu: kilka rownomiernie rozlozonych klatek
             wybor = sorted({int(i * (len(files) - 1) / 4) for i in range(5)})

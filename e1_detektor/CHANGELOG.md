@@ -239,3 +239,6 @@
 ## 0.17.10
 - Miniatury osób w całości (bez ucinania), ten sam rozmiar.
 - Podgląd na żywo: naprawione gubienie zoomu szczypaniem (czyszczenie zawieszonych wskaźników dotyku).
+
+## 0.17.11
+- Najlepsza klatka przejazdu: okno szukania zaczyna się 8 s PRZED zdarzeniem (kamera zgłasza zdarzenie z opóźnieniem, auto bywało już poza kadrem), do 5 kandydatów zamiast 4.
