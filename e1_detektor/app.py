@@ -491,6 +491,42 @@ def najlepsza_klatka_sync(b, klasy, granica, t0=None):
         shutil.rmtree(tmpd, ignore_errors=True)
 
 
+def diag_sync(b, od_off=-9.0, do_off=7.0, krok=1):
+    """Diagnostyka: dla kazdej klatki lekkiego strumienia w oknie - ruch (powierzchnia, srodek) i detekcje pojazdow."""
+    t = reolink.czas_zdarzenia(b)
+    t0 = time.mktime(t.timetuple())
+    tmpd = tempfile.mkdtemp(prefix="e1d_")
+    try:
+        od, do = t0 + od_off, t0 + do_off
+        files = bufor.klatki(od, do, 3, tmpd, pre="s")
+        out = []
+        male = []
+        for f in files:
+            im = Image.open(f)
+            im.load()
+            male.append(np.asarray(im.convert("L").resize((80, 60)), dtype=np.float32))
+        bg = np.median(np.stack(male), 0) if male else None
+        scan = SESS_T or SESS
+        for k, f in enumerate(files):
+            m = np.abs(male[k] - bg) > 28
+            ar = float(m.mean())
+            ys, xs = np.nonzero(m)
+            r = {"t": round(od + k / 3 - t0, 1), "ar": round(ar, 3)}
+            if ar > 0.004:
+                r["mx"] = round(float(xs.mean()) / 80, 2)
+                r["my"] = round(float(ys.mean()) / 60, 2)
+            if k % krok == 0:
+                im = Image.open(f)
+                im.load()
+                iw, ih = im.size
+                bx = detect(im, KLASY["pojazd"], MIN_CONF * 0.9, sess=scan)
+                r["det"] = [[round(v, 2) for v in _norm(x, iw, ih)] + [round(x[4], 2)] for x in bx]
+            out.append(r)
+        return {"t0": t0, "kl": len(files), "ramki": out}
+    finally:
+        shutil.rmtree(tmpd, ignore_errors=True)
+
+
 def popraw_kadr_sync(clip, b, n0):
     """Z klipu wybiera klatke z najwieksza liczba osob (razem w jednym kadrze).
 
@@ -1077,6 +1113,18 @@ async def analyze(request):
                         shutil.rmtree(_d, ignore_errors=True)
                     return _r
                 return web.json_response({"ok": True, "bench": await asyncio.get_running_loop().run_in_executor(None, _bench)})
+            if dane.get("cmd") == "diag":
+                _b = str(dane.get("b", ""))
+
+                async def _dg():
+                    try:
+                        _TEST["diag"] = await asyncio.get_running_loop().run_in_executor(None, diag_sync, _b, float(dane.get("od", -9)), float(dane.get("do", 7)), int(dane.get("krok", 1)))
+                    except Exception as _e:
+                        log.exception("diag")
+                        _TEST["diag"] = {"blad": str(_e)}
+                _TEST.pop("diag", None)
+                asyncio.create_task(_dg())
+                return web.json_response({"ok": True})
             if dane.get("cmd") == "przelicz":
                 _b = str(dane.get("b", ""))
                 if not _b or "/" in _b:

@@ -245,3 +245,6 @@
 
 ## 0.17.12
 - Komenda `przelicz`: ponowny wybór najlepszej klatki dla zdarzenia z bufora (do 45 min wstecz).
+
+## 0.17.13
+- Komenda `diag` (diagnostyka klatek zdarzenia).
