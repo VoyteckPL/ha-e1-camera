@@ -193,7 +193,7 @@ const list=ALL.filter(F.find(f=>f[0]==cur)[2]);
 if(!list.length){$('m').innerHTML='<p class="empty">Brak zdarzeń.</p>';return}
 let out='',g='',prev=null;
 for(const e of list){const d=day(e.czas);if(d!=g){if(g)out+='</div>';out+=`<h2>${d}</h2><div class="${TV?'tl':'grid'}">`;g=d;prev=null}
-const tg=(e.auto?`<span class="tag a">${esc(e.auto)}</span>`:'')+(e.ruch?`<span class="tag p">${esc(e.ruch)}</span>`:'')+`<span class="tag"><span class="dotc" style="background:${zcol(e.lok)}"></span>${esc(e.lok||'')}</span>${+e.conf>0?`<span class="tag">${Math.round(e.conf*100)}%</span>`:''}${+e.pow?'<span class="tag p">powiadomiono</span>':''}`;
+const tg=(e.ruch?`<span class="tag p">${esc(e.ruch)}</span>`:'')+`<span class="tag"><span class="dotc" style="background:${zcol(e.lok)}"></span>${esc(e.lok||'')}</span>${+e.conf>0?`<span class="tag">${Math.round(e.conf*100)}%</span>`:''}`;
 const im=`<img loading="lazy" src="${esc(img(e))}" data-e="${esc(e.b)}" onerror="this.onerror=null;this.src='${SN}${esc(e.plik)}'">`;
 const rw='';
 if(TV){const gp=prev?gapTxt(prev,e.czas):'';if(gp)out+=`<div class="gap">${gp}</div>`;prev=e.czas;

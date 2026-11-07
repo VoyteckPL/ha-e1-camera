@@ -229,3 +229,6 @@
 
 ## 0.17.7
 - Panel: lista zdarzeń bez przycisków Wideo / Fałsz. / Usuń i bez oznaczania aut (kompaktowo). W arkuszu zdarzenia: Fałszywy alarm, Usuń i rozwinięte oznaczanie aut.
+
+## 0.17.8
+- Panel: z listy zdarzeń zniknęły znacznik „powiadomiono” i lista rozpoznanych aut (są w arkuszu zdarzenia).
