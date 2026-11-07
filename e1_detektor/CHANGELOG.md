@@ -348,3 +348,6 @@
 
 ## 0.18.24
 - Po restarcie wpisy Przejazdow zawieszone w "Analizuje" sa przetwarzane ponownie
+
+## 0.18.25
+- Snap od razu w pelnej jakosci z glownego strumienia bufora (dopasowanie ruchem), Reolink nadal dopieszcza pozniej

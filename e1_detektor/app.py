@@ -599,6 +599,17 @@ def najlepsza_klatka_sync(b, klasy, granica, t0=None, extra=False):
         img = Image.open(files[kref])
         img.load()
         img = img.convert("RGB")
+        try:  # od razu pelna jakosc: klatka z glownego strumienia bufora dopasowana ruchem do wybranej klatki lekkiego
+            _hp = SNAP / f"e1_best_{b}.hi.jpg"
+            _ok, _sim = bufor.klatka_dopasuj(tc, fg_ref, n, _hp)
+            if _ok and _sim is not None and _sim >= 0.45:
+                _hi = Image.open(_hp)
+                _hi.load()
+                img = _hi.convert("RGB")
+                log.info("bufor: %s snap w pelnej jakosci od razu (%dx%d, podobienstwo %.2f)", b, img.size[0], img.size[1], _sim)
+            _hp.unlink(missing_ok=True)
+        except Exception:
+            log.exception("bufor pelna klatka %s", b)
         img.save(pf, quality=92)
         PEND[b] = (tc, fg_ref, list(n))
         GLOWNY[b] = (tc, list(n))
