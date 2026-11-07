@@ -339,3 +339,6 @@
 
 ## 0.18.21
 - Rozdzielanie klipu: wykrywanie aut, które stoją cały klip (tło), przyjechały i zaparkowały albo odjechały (porównanie początku i końca klipu); stojące auta nie są już mylone z osobą przechodzącą przed nimi.
+
+## 0.18.22
+- Panel v54: pasek "Zaparkowane" kompaktowo, tylko marki, bez miniaturek

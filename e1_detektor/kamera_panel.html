@@ -27,7 +27,7 @@ h2{font-size:13px;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;
 .tag.a{background:#3b82f6;color:#fff}
 #pk{display:none;gap:8px;padding:6px 12px;overflow-x:auto;align-items:center}#pk.on{display:flex}
 #pk .pt{font-size:13px;color:var(--mu);flex:none}
-#pk .pc{display:flex;align-items:center;gap:6px;flex:none;background:var(--bd);border-radius:12px;padding:3px 10px 3px 3px;font-size:13px}
+#pk .pc{display:flex;align-items:center;gap:6px;flex:none;background:var(--bd);border-radius:12px;padding:2px 10px;font-size:13px}
 #pk .pc img{height:30px;width:44px;object-fit:cover;border-radius:9px;background:#000}
 #au{display:none;gap:6px;padding:8px 12px 0;flex-wrap:wrap;align-items:center}#au.on{display:flex}#au small{color:var(--mu);font-size:12px;width:100%}
 .btn{border:1px solid var(--bd);background:var(--cd);color:var(--tx);border-radius:8px;padding:4px 10px;cursor:pointer;font:inherit;font-size:13px}
@@ -126,7 +126,7 @@ body[data-tab=zd] #nav [data-tab=zd],body[data-tab=live] #nav [data-tab=live],bo
 <div class="set"><h3>Oznaczanie aut</h3><p class="opis" style="margin:0">Ręczne oznaczanie aut na podjeździe (Kia, Seat, Obce…) w zdarzeniach z samochodem. Domyślnie wyłączone, bo auta na drodze rozpoznaje Gemini w zakładce Przejazdy. Ustawienie dotyczy tego urządzenia.</p><button class="btn big" id="ozb"></button></div>
 <div class="set"><h3>Strojenie</h3><p class="opis" style="margin:0" id="tus">Zbieranie danych do uczenia czułości.</p><button class="btn big" id="tub">Pokaż dane</button></div>
 <div class="set"><h3>Historia</h3><p class="opis" style="margin:0">Usuwa wszystkie zdarzenia z panelu (pliki zostaną posprzątane automatycznie).</p><button class="btn big" id="clr">Wyczyść historię</button></div>
-<p class="opis" style="text-align:center">Panel kamery v53</p>
+<p class="opis" style="text-align:center">Panel kamery v54</p>
 </section>
 <nav id="nav"><button data-tab="zd"><i>🗂</i><span>Zdarzenia</span></button><button data-tab="live"><i>🎥</i><span>Na żywo</span></button><button data-tab="park"><i>🅿️</i><span>Parking</span></button><button data-tab="prz"><i>🚗</i><span>Przejazdy</span></button><button data-tab="ust"><i>⚙️</i><span>Ustawienia</span></button></nav>
 
@@ -226,7 +226,7 @@ zw.addEventListener('wheel',e=>{e.preventDefault();zm(S*(e.deltaY<0?1.15:1/1.15)
 let AUTA=[],pkSig='';
 function pkRender(){const h=H();const s=h&&h.states['sensor.kamera_zaparkowane'];const el=$('pk');if(!s){el.className='';return}
 const sig=s.last_updated;if(sig==pkSig)return;pkSig=sig;const l=s.attributes.auta||[];
-el.className='on';el.innerHTML='<span class="pt">🚗 Zaparkowane: <b>'+esc(s.state)+'</b></span>'+l.map(a=>`<span class="pc">${a.crop?`<img src="${SN}${esc(a.crop)}">`:''}${esc(a.nazwa)} <small style="color:var(--mu)">od ${esc(a.od)}</small></span>`).join('')}
+el.className='on';el.innerHTML='<span class="pt">🚗</span>'+l.map(a=>`<span class="pc">${esc(String(a.nazwa||'?').split(' ')[0])}</span>`).join('')}
 async function loadAuta(){try{const c=await api({cmd:'auta'});AUTA=c.auta||[];last=''}catch(e){}}
 async function doLabel(b,id,i){const x=ALL.find(z=>z.b==b);if(!x)return;const pj=(x.pojazdy||[]).find(p=>String(p.i)==String(i));try{const o={cmd:'etykieta',b:b,crop:pj?pj.crop:(x.crop||x.plik),auto:id};if(pj)o.i=pj.i;const c=await api(o);x.auto=c.auto;AUTA=c.auta||AUTA;if(pj){pj.nazwa=c.auto;pj.auto_id=id}}catch(err){}last='';render();if(EV&&EV.b==b){EV.auto=x.auto;auRender()}setTimeout(()=>{last='';render();if(EV&&EV.b==b){const y=ALL.find(z=>z.b==b);if(y){EV=y;delete zi.dataset.u;showPhoto();auRender()}}},2500)}
 function chips(e,i,p){const cur=(p?p.nazwa:e.auto)||'';return AUTA.map(a=>{const n=a.nazwa+(a.opis?' ('+a.opis+')':'');return `<button class="btn sm${cur==n?' pri':''}" data-lab="${esc(e.b)}|${esc(a.id)}|${i}">${esc(a.nazwa.split(' ')[0])}</button>`}).join('')+`<button class="btn sm${(p?p.auto_id=='obce':e.auto=='Obce auto')?' pri':''}" data-lab="${esc(e.b)}|obce|${i}">Obce</button>`}
