@@ -373,6 +373,9 @@ def analiza_klip_sync(clip: Path, b, klasy):
         shutil.rmtree(tmpd, ignore_errors=True)
 
 
+_TEST = {}
+
+
 def _cel_drogi(cfg):
     """Srodek strefy 'Droga' (0..1); bez takiej strefy - srodek kadru."""
     for z in cfg.get("strefy", []):
@@ -411,6 +414,7 @@ def najlepsza_klatka_sync(b, klasy, granica, t0=None):
                 mx, my = (bx[0] + bx[2]) / 2 / iw, (bx[1] + bx[3]) / 2 / ih
                 dist = math.hypot(mx - cx, (my - cy) * 0.7)
                 kand.append((box_score(bx, iw, ih) * max(0.15, 1.0 - dist * 1.4), f, bx))
+        log.info("bufor: %s skan %d klatek (%.1f s), kandydatow %d", b, len(files), time.time() - ts, len(kand))
         if not kand:
             return None
         kand.sort(key=lambda x: -x[0])
@@ -980,15 +984,27 @@ async def analyze(request):
             if dane.get("cmd") == "bufor":
                 return web.json_response({"ok": True, "bufor": bufor.status()})
             if dane.get("cmd") == "bufor_test":
-                # test na zywo: klip i najlepsza klatka dla zdarzenia sprzed `sek` sekund
+                # test na zywo w tle: klip i najlepsza klatka dla zdarzenia sprzed `sek` sekund; wynik: cmd bufor_wynik
                 _t0 = time.time() - float(dane.get("sek", 20))
                 _b = "e1_" + time.strftime("%Y%m%d_%H%M%S", time.localtime(_t0)) + "_test"
-                _ts = time.time()
-                _wy = await asyncio.get_running_loop().run_in_executor(None, najlepsza_klatka_sync, _b, KLASY["pojazd"], "", _t0)
-                _tk = time.time() - _ts
-                _ok = await bufor.klip(_b, SNAP / f"e1_v_{_b}.mp4", _t0)
-                return web.json_response({"ok": True, "b": _b, "klatka": bool(_wy), "t_klatka": round(_tk, 1),
-                                          "klip": _ok, "t_calosc": round(time.time() - _ts, 1), "rozm": [list(_wy[0].size)] if _wy else None})
+                _TEST.clear()
+
+                async def _bt():
+                    _ts = time.time()
+                    try:
+                        _wy = await asyncio.get_running_loop().run_in_executor(None, najlepsza_klatka_sync, _b, KLASY["pojazd"], "", _t0)
+                        _TEST["klatka"] = bool(_wy)
+                        _TEST["t_klatka"] = round(time.time() - _ts, 1)
+                        _TEST["klip"] = await bufor.klip(_b, SNAP / f"e1_v_{_b}.mp4", _t0)
+                        _TEST["t_calosc"] = round(time.time() - _ts, 1)
+                    except Exception as _e:
+                        log.exception("bufor_test")
+                        _TEST["blad"] = str(_e)
+                    _TEST["b"] = _b
+                asyncio.create_task(_bt())
+                return web.json_response({"ok": True, "b": _b})
+            if dane.get("cmd") == "bufor_wynik":
+                return web.json_response({"ok": True, "wynik": _TEST})
             if dane.get("cmd") == "sd_test":
                 import aiohttp as _ah
                 async with _ah.ClientSession() as _s:
