@@ -203,3 +203,8 @@
 
 ## 0.16.3
 - Pobieranie z kamery po IP (sd) tylko jako zapas po 70 s - rownolegle pobieranie spowalnialo glowna sciezke (kamera oddaje ok. 0.5 MB/s). Jakosc nagran bez zmian (4096 kbps).
+
+## 0.17.0
+- Bufor kołowy: dodatek stale nagrywa główny strumień RTSP kamery w pełnej jakości (kopiowanie, kawałki ~2 s, ostatnie 45 min na dysku). Klip zdarzenia składa się z bufora od razu (kilka sekund przed ruchem) i dokleja się w trakcie nagrywania; ścieżki z Reolinka/karty SD zostają jako zapas.
+- Przejeżdżające pojazdy: kadr wybierany z klatek bufora wokół zdarzenia (najbliżej środka strefy „Droga", cały w kadrze) zamiast jednego zdjęcia z chwili zgłoszenia.
+- /analyze: polecenia `bufor` (stan) i `bufor_test` (próba na żywo).

@@ -22,6 +22,7 @@ from aiohttp import web
 from PIL import Image
 
 import auta
+import bufor
 import reolink
 import strefy
 
@@ -60,6 +61,13 @@ SESS = ort.InferenceSession(str(MODEL_DIR / f"{MODEL_NAME}.onnx"), so, providers
 INP = SESS.get_inputs()[0]
 IN_H, IN_W = int(INP.shape[2]), int(INP.shape[3])
 log.info("model %s wejscie %sx%s, watki %s", MODEL_NAME, IN_W, IN_H, THREADS)
+SESS_T = None  # lekki model do przegladania klatek z bufora
+try:
+    if MODEL_NAME != "yolox_tiny" and (MODEL_DIR / "yolox_tiny.onnx").exists():
+        SESS_T = ort.InferenceSession(str(MODEL_DIR / "yolox_tiny.onnx"), so, providers=["CPUExecutionProvider"])
+        log.info("model skanu klatek: yolox_tiny")
+except Exception:
+    SESS_T = None
 
 LOCK = asyncio.Lock()
 GLOCK = asyncio.Lock()  # poprawa kadru z klipu: po jednym zdarzeniu naraz
@@ -101,8 +109,9 @@ def nms(boxes, scores, thr=0.45):
     return keep
 
 
-def detect(img: Image.Image, klasy, conf_thr):
+def detect(img: Image.Image, klasy, conf_thr, sess=None):
     """Zwraca listę (x1, y1, x2, y2, conf) w pikselach obrazu."""
+    ses = sess or SESS
     iw, ih = img.size
     r = min(IN_W / iw, IN_H / ih)
     nw, nh = max(1, int(iw * r)), max(1, int(ih * r))
@@ -110,7 +119,7 @@ def detect(img: Image.Image, klasy, conf_thr):
     canvas = np.full((IN_H, IN_W, 3), 114, dtype=np.uint8)
     canvas[:nh, :nw] = np.asarray(small)
     x = canvas[:, :, ::-1].transpose(2, 0, 1)[None].astype(np.float32)  # BGR, CHW
-    out = SESS.run(None, {INP.name: x})[0][0]
+    out = ses.run(None, {INP.name: x})[0][0]
     out[:, :2] = (out[:, :2] + GRID) * STRIDE
     out[:, 2:4] = np.exp(out[:, 2:4]) * STRIDE
     obj = out[:, 4]
@@ -359,6 +368,73 @@ def analiza_klip_sync(clip: Path, b, klasy):
             nazwa = f"e1_best_{b}.jpg"
             best[1].convert("RGB").save(SNAP / nazwa, "JPEG", quality=90)
             return best[1], best[2], nazwa
+        return None
+    finally:
+        shutil.rmtree(tmpd, ignore_errors=True)
+
+
+def _cel_drogi(cfg):
+    """Srodek strefy 'Droga' (0..1); bez takiej strefy - srodek kadru."""
+    for z in cfg.get("strefy", []):
+        if "droga" in z.get("nazwa", "").lower() and z.get("pts"):
+            xs = [p[0] for p in z["pts"]]
+            ys = [p[1] for p in z["pts"]]
+            return ((min(xs) + max(xs)) / 2000.0, (min(ys) + max(ys)) / 2000.0)
+    return (0.5, 0.5)
+
+
+def najlepsza_klatka_sync(b, klasy, granica, t0=None):
+    """Z bufora (okno wokol zdarzenia) wybiera klatke, na ktorej pojazd jest najblizej srodka drogi i caly w kadrze."""
+    if t0 is None:
+        t = reolink.czas_zdarzenia(b)
+        if t is None:
+            return None
+        t0 = time.mktime(t.timetuple())
+    tmpd = tempfile.mkdtemp(prefix="e1b_")
+    ts = time.time()
+    try:
+        do = min(t0 + 5.5, time.time() - 3.0)
+        files = bufor.klatki(t0 - 1.5, do, 2, tmpd)
+        if not files:
+            return None
+        cx, cy = _cel_drogi(strefy.wczytaj(granica))
+        scan = SESS_T or SESS
+        kand = []
+        for f in files:
+            img = Image.open(f)
+            img.load()
+            iw, ih = img.size
+            boxes = detect(img, klasy, MIN_CONF * 0.9, sess=scan)
+            if klasy == KLASY["pojazd"]:
+                boxes = ruchome(boxes, iw, ih, b)
+            for bx in boxes:
+                mx, my = (bx[0] + bx[2]) / 2 / iw, (bx[1] + bx[3]) / 2 / ih
+                dist = math.hypot(mx - cx, (my - cy) * 0.7)
+                kand.append((box_score(bx, iw, ih) * max(0.15, 1.0 - dist * 1.4), f, bx))
+        if not kand:
+            return None
+        kand.sort(key=lambda x: -x[0])
+        # dopracowanie: pelny model na najlepszej klatce (ewentualnie 2. klatka, gdy pelny model nic nie znajdzie)
+        for _, f, _bx in kand[:2]:
+            img = Image.open(f)
+            img.load()
+            iw, ih = img.size
+            boxes = detect(img, klasy, MIN_CONF)
+            surowe = boxes
+            if klasy == KLASY["pojazd"]:
+                boxes = ruchome(boxes, iw, ih, b)
+            if not boxes:
+                continue
+            def ocena(bx):
+                mx, my = (bx[0] + bx[2]) / 2 / iw, (bx[1] + bx[3]) / 2 / ih
+                return box_score(bx, iw, ih) * max(0.15, 1.0 - math.hypot(mx - cx, (my - cy) * 0.7) * 1.4)
+            wybrany = max(boxes, key=ocena)
+            if klasy == KLASY["pojazd"]:
+                zapamietaj(surowe, iw, ih, b)
+            nazwa = f"e1_best_{b}.jpg"
+            img.convert("RGB").save(SNAP / nazwa, "JPEG", quality=90)
+            log.info("bufor: %s najlepsza klatka z %d (%.1f s), conf %.2f", b, len(files), time.time() - ts, wybrany[4])
+            return img, [wybrany], nazwa
         return None
     finally:
         shutil.rmtree(tmpd, ignore_errors=True)
@@ -901,6 +977,18 @@ async def analyze(request):
             dane = json.loads(str(d.get("plik", "{}")) or "{}")
             if dane.get("cmd") == "auta":
                 return web.json_response({"ok": True, "auta": auta.lista()})
+            if dane.get("cmd") == "bufor":
+                return web.json_response({"ok": True, "bufor": bufor.status()})
+            if dane.get("cmd") == "bufor_test":
+                # test na zywo: klip i najlepsza klatka dla zdarzenia sprzed `sek` sekund
+                _t0 = time.time() - float(dane.get("sek", 20))
+                _b = "e1_" + time.strftime("%Y%m%d_%H%M%S", time.localtime(_t0)) + "_test"
+                _ts = time.time()
+                _wy = await asyncio.get_running_loop().run_in_executor(None, najlepsza_klatka_sync, _b, KLASY["pojazd"], "", _t0)
+                _tk = time.time() - _ts
+                _ok = await bufor.klip(_b, SNAP / f"e1_v_{_b}.mp4", _t0)
+                return web.json_response({"ok": True, "b": _b, "klatka": bool(_wy), "t_klatka": round(_tk, 1),
+                                          "klip": _ok, "t_calosc": round(time.time() - _ts, 1), "rozm": [list(_wy[0].size)] if _wy else None})
             if dane.get("cmd") == "sd_test":
                 import aiohttp as _ah
                 async with _ah.ClientSession() as _s:
@@ -978,9 +1066,22 @@ async def analyze(request):
     loop = asyncio.get_running_loop()
     t0 = time.time()
     zrodlo = "zdjecie"
-    asyncio.create_task(reolink.sd_wideo(b, SNAP / f"e1_v_{b}.mp4", MEDIA, przygotuj_wideo_sync))  # od razu: podglad w trakcie nagrywania
+    asyncio.create_task(reolink.sd_wideo(b, SNAP / f"e1_v_{b}.mp4", MEDIA, przygotuj_wideo_sync))  # zapas: gdy bufor zawiedzie
+    asyncio.create_task(bufor.klip(b, SNAP / f"e1_v_{b}.mp4"))  # klip z bufora: od razu, dokleja sie w trakcie
     async with LOCK:
-        wynik, zapas = await loop.run_in_executor(None, analiza_sync, b, plik, rodzaj, granica, klasy)
+        wynik = zapas = None
+        if rodzaj == "pojazd" and bufor.gotowy():
+            tz0 = reolink.czas_zdarzenia(b)
+            if tz0:
+                await bufor.czekaj(min(time.mktime(tz0.timetuple()) + 4.0, time.time() + 6), 7.0)
+            try:
+                wynik = await loop.run_in_executor(None, najlepsza_klatka_sync, b, klasy, granica)
+            except Exception:
+                log.exception("najlepsza klatka %s", b)
+            if wynik:
+                zrodlo = "bufor"
+        if wynik is None:
+            wynik, zapas = await loop.run_in_executor(None, analiza_sync, b, plik, rodzaj, granica, klasy)
         if wynik is None and wait > 0:
             clip = await czekaj_na_klip(b, wait)
             if clip:
@@ -993,7 +1094,7 @@ async def analyze(request):
     if wynik:
         img, boxes, pelny = wynik
         iw, ih = img.size
-        if rodzaj == "pojazd" and zrodlo != "klip":
+        if rodzaj == "pojazd" and zrodlo not in ("klip", "bufor"):
             zapamietaj(boxes, iw, ih, b)
             boxes = ruchome(boxes, iw, ih, b) or boxes
         best, rect, n = wybierz_kadr(boxes, iw, ih)
@@ -1233,6 +1334,7 @@ async def on_start(app):
     usun_stare()
     app["sprz"] = asyncio.create_task(sprzatanie())
     app["skan"] = asyncio.create_task(skan_petla())
+    app["bufor"] = asyncio.create_task(bufor.petla())
 
 
 def main():
