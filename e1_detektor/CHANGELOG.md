@@ -232,3 +232,6 @@
 
 ## 0.17.8
 - Panel: z listy zdarzeń zniknęły znacznik „powiadomiono” i lista rozpoznanych aut (są w arkuszu zdarzenia).
+
+## 0.17.9
+- Panel: oznaczanie aut w arkuszu zdarzenia domyślnie zwinięte.

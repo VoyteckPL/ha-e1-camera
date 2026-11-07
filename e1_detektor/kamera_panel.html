@@ -257,7 +257,7 @@ $('sht').textContent=e?(NAZ[e.rodzaj]||e.rodzaj):'Zdarzenie';
 $('shs').textContent=e?(e.czas.slice(0,16)+' · '+(e.lok||'')+(+e.conf>0?' · '+Math.round(e.conf*100)+'%':'')):'Analiza w toku…';
 zv.pause();zv.removeAttribute('src');delete zv.dataset.src;
 PM=(e&&(e.pojazdy||[]).length)?'full':'crop';delete zi.dataset.u;$('bfu').hidden=!(e&&e.crop&&e.plik&&e.crop!=e.plik);
-if(e&&e.rodzaj=='Pojazd')LABOPEN.add(e.b);$('sh').className='on';showPhoto();auRender();faUpd();VB='';VSIG='';vWatch()}
+LABOPEN.delete(b);$('sh').className='on';showPhoto();auRender();faUpd();VB='';VSIG='';vWatch()}
 async function saveCur(){if(!EV)return;const vid=zv.style.display!='none';
 if(vid&&!zv.dataset.src){msg('Wideo jeszcze się przygotowuje…');setTimeout(()=>{if(zv.dataset.src)msg('')},1500);return}
 const url=vid?zv.dataset.src:phUrl();const nm='kamera_'+EV.b.replace(/^e1_/,'')+(vid?'.mp4':PM=='full'?'_kadr.jpg':PM.startsWith('os')?'_osoba'+(+PM.slice(2)+1)+'.jpg':'.jpg');
