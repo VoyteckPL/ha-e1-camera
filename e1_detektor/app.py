@@ -555,11 +555,28 @@ def najlepsza_klatka_sync(b, klasy, granica, t0=None, extra=False):
         bg = np.median(np.stack(male), 0)
         ocena_ruchu = []
         traj = []
+        pmask = None
+        if pojazd:  # auto liczymy tylko po ruchu w strefie Droga (ludzie/cienie na podjezdzie nie przesuwaja wyboru klatki)
+            try:
+                import cv2
+                _dr = next((z["pts"] for z in strefy.wczytaj(granica).get("strefy", []) if "droga" in z.get("nazwa", "").lower() and z.get("pts")), None)
+                if _dr:
+                    pmask = np.zeros((60, 80), np.uint8)
+                    cv2.fillPoly(pmask, [np.array([[p[0] / 1000 * 80, p[1] / 1000 * 60] for p in _dr], np.int32)], 1)
+                    pmask = pmask.astype(bool)
+            except Exception:
+                pmask = None
         for k, a in enumerate(male):
             m = np.abs(a - bg) > 28
-            ar = float(m.mean())
-            if ar < 0.004 or ar > 0.6:
-                continue
+            if pmask is not None:
+                m = m & pmask
+                ar = float(m.sum()) / max(1.0, float(pmask.sum()))
+                if ar < 0.01:
+                    continue
+            else:
+                ar = float(m.mean())
+                if ar < 0.004 or ar > 0.6:
+                    continue
             ys, xs = np.nonzero(m)
             mx, my = float(xs.mean()) / 80, float(ys.mean()) / 60
             traj.append((k, mx, my))

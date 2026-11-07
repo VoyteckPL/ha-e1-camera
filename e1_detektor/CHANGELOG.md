@@ -363,3 +363,6 @@
 
 ## 0.18.29
 - cmd snap_b64 (diagnostyka: miniatura snapa)
+
+## 0.18.30
+- Wybor klatki auta: ruch liczony tylko w strefie Droga
