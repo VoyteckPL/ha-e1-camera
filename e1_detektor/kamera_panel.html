@@ -98,7 +98,7 @@ body[data-tab=prz] header,body[data-tab=prz] #m,body[data-tab=prz] #pk,body[data
 #nav button{flex:1;border:0;background:none;color:var(--mu);font:inherit;font-size:12px;padding:8px 4px 6px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;min-height:56px}
 #nav button i{font-style:normal;font-size:22px;line-height:1}
 body[data-tab=zd] #nav [data-tab=zd],body[data-tab=live] #nav [data-tab=live],body[data-tab=ust] #nav [data-tab=ust],body[data-tab=park] #nav [data-tab=park],body[data-tab=prz] #nav [data-tab=prz]{color:var(--ac);font-weight:600}
-.pzt{width:100%;border-collapse:collapse}.pzt td{padding:8px 4px;border-top:1px solid var(--bd);vertical-align:middle}.pzt tr.pzr{cursor:pointer}.pzt img{width:72px;height:54px;object-fit:contain;background:#000;border-radius:8px;display:block}.pzt .pzn{font-weight:600;font-size:15px}.pzt .pzs{font-size:12px;color:var(--mu)}.pzt .pzw{text-align:right;white-space:nowrap;font-size:13px}.pzt .pzw b{font-size:15px}.pzt .pzk{font-size:18px;line-height:1}.pzd td{border-top:0;padding:14px 4px 4px;font-size:13px;color:var(--mu);font-weight:600}
+.pzt{width:100%;border-collapse:collapse}.pzt td{padding:8px 4px;border-top:1px solid var(--bd);vertical-align:middle}.pzt tr.pzr{cursor:pointer}.pzt img{width:72px;height:54px;object-fit:contain;background:#000;border-radius:8px;display:block}.pzt .pzn{font-weight:600;font-size:15px}.pzt .pzs{font-size:12px;color:var(--mu)}.pzt .pzw{text-align:right;white-space:nowrap;font-size:13px}.pzt .pzw b{font-size:15px}.pzt .pzk{font-size:18px;line-height:1}.pzt tr.pzg{cursor:pointer}.pzd td{border-top:0;padding:14px 4px 4px;font-size:13px;color:var(--mu);font-weight:600}
 .btn.big{padding:12px 14px;font-size:15px;border-radius:12px;width:100%}
 .btn{min-height:34px}.row{flex-wrap:wrap}.tc .row,.card .row{justify-content:flex-start}.tc .row .btn,.card .row .btn{flex:1 1 0;padding:7px 4px;white-space:nowrap;text-align:center}
 .chip{padding:7px 13px;font-size:14px}
@@ -125,7 +125,7 @@ body[data-tab=zd] #nav [data-tab=zd],body[data-tab=live] #nav [data-tab=live],bo
 <div class="set"><h3>Strefy i powiadomienia</h3><p class="opis" style="margin:0">Rysowanie stref na zdjęciu oraz osobne powiadomienia dla osób, aut i zwierząt w każdej strefie.</p><button class="btn pri big" id="stb">Otwórz</button></div>
 <div class="set"><h3>Strojenie</h3><p class="opis" style="margin:0" id="tus">Zbieranie danych do uczenia czułości.</p><button class="btn big" id="tub">Pokaż dane</button></div>
 <div class="set"><h3>Historia</h3><p class="opis" style="margin:0">Usuwa wszystkie zdarzenia z panelu (pliki zostaną posprzątane automatycznie).</p><button class="btn big" id="clr">Wyczyść historię</button></div>
-<p class="opis" style="text-align:center">Panel kamery v46</p>
+<p class="opis" style="text-align:center">Panel kamery v47</p>
 </section>
 <nav id="nav"><button data-tab="zd"><i>🗂</i><span>Zdarzenia</span></button><button data-tab="live"><i>🎥</i><span>Na żywo</span></button><button data-tab="park"><i>🅿️</i><span>Parking</span></button><button data-tab="prz"><i>🚗</i><span>Przejazdy</span></button><button data-tab="ust"><i>⚙️</i><span>Ustawienia</span></button></nav>
 
@@ -517,13 +517,26 @@ document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest
 setInterval(()=>{if(TAB=='park'&&Date.now()-TPT>30000)tpLoad()},5000);
 
 /* ---- zakladka Przejazdy: auta jadace droga (godzina, kierunek, rozpoznanie Gemini) ---- */
-let PZD=null,PZT=0;
+let PZD=null,PZT=0,PZV='lista',PZO='';try{PZV=localStorage.getItem('pzv')||'lista'}catch(e){}
 async function pzLoad(){PZT=Date.now();try{PZD=await api({cmd:'przejazdy',n:200})}catch(e){}pzRender()}
 function pzDay(ts,ref){const d=new Date(ts*1000),r=new Date(ref*1000);if(d.toDateString()==r.toDateString())return 'Dziś';const y=new Date(ref*1000-86400000);if(d.toDateString()==y.toDateString())return 'Wczoraj';return d.toLocaleDateString('pl-PL',{weekday:'long',day:'numeric',month:'long'})}
+function pzKey(e){if(e.status!='ok')return null;if(e.tablica&&e.tablica.length>=4)return 'P:'+e.tablica;const mk=(e.marka||'').trim().toLowerCase(),md=(e.model||'').toLowerCase().split(/\s+/).filter(t=>t&&!/^(i|ii|iii|iv|v|vi|vii|viii|ix|x|mk\d+|[wfegb]\d{2,3}|\(.*\))$/.test(t)).join(' ');if(!mk||/^nie/.test(mk)||!md||/^nie/.test(md)||(e.pewnosc||0)<50)return null;return mk+'|'+md+'|'+(e.kolor||'').toLowerCase()}
+function pzSet(v){PZV=v;try{localStorage.setItem('pzv',v)}catch(e){}pzRender()}
+function pzAuta(L,D){const G={};for(const e of L){const k=pzKey(e);if(!k)continue;(G[k]=G[k]||[]).push(e)}
+// wpisy z tablica scalamy z grupa opisowa, jesli ma ten sam opis
+const gs=Object.entries(G).map(([k,a])=>({k,a,t:a[0]}));gs.sort((x,y)=>y.a[0].ts-x.a[0].ts);
+let h=`<p class="opis" style="margin:0 0 4px">Rozpoznane auta: <b>${gs.length}</b>. Grupowanie po marce, modelu i kolorze (oraz tablicy, gdy czytelna). Wpisy o niskiej pewności nie są grupowane.</p><table class="pzt">`;
+for(const g of gs){const e=g.t,mk=[e.marka,e.model].filter(Boolean).join(' '),n=g.a.length;const pr=g.a.filter(x=>x.kier=='prawo').length,le=g.a.filter(x=>x.kier=='lewo').length;
+const op=PZO==g.k;
+h+=`<tr class="pzg" data-k="${esc(g.k)}"><td style="width:76px">${e.mini?`<img loading="lazy" src="${SN}${esc(e.mini)}">`:''}</td><td><div class="pzn">${esc(mk)}${e.tablica?` <span class="pzs">${esc(e.tablica)}</span>`:''}</div><div class="pzs">${esc([e.kolor,e.typ].filter(Boolean).join(' · '))}</div><div class="pzs">Ostatnio: ${esc(pzDay(e.ts,D.teraz))} ${esc((e.czas||'').slice(11,16))}${pr||le?` · →${pr} ←${le}`:''}</div></td><td class="pzw"><b>${n}×</b></td></tr>`;
+if(op)for(const x of g.a)h+=`<tr class="pzr" data-b="${esc(x.b)}"><td></td><td class="pzs">${esc(pzDay(x.ts,D.teraz))}</td><td class="pzw">${esc((x.czas||'').slice(11,16))} ${x.kier=='prawo'?'→':x.kier=='lewo'?'←':'·'}</td></tr>`}
+return h+'</table>'}
 function pzRender(){const el=$('tz');if(!el)return;const D=PZD;if(!D){el.innerHTML='<p class="opis">Ładuję…</p>';return}
 const L=D.lista||[];if(!L.length){el.innerHTML='<p class="opis">Brak przejazdów. Auta jadące drogą pojawią się tu po przejeździe, z godziną, kierunkiem i rozpoznaną marką.</p>';return}
 const today=L.filter(e=>pzDay(e.ts,D.teraz)=='Dziś').length;
-let h=`<p class="opis" style="margin:0 0 4px">Dziś przejechało: <b>${today}</b>. Kierunek: → z lewej strony kadru na prawą, ← odwrotnie.</p><table class="pzt">`,dd='';
+const sw=`<div style="display:flex;gap:6px;margin:0 0 8px"><button class="btn${PZV=='lista'?' on':''}" onclick="pzSet('lista')">Lista</button><button class="btn${PZV=='auta'?' on':''}" onclick="pzSet('auta')">Auta</button></div>`;
+if(PZV=='auta'){el.innerHTML=sw+pzAuta(L,D);return}
+let h=sw+`<p class="opis" style="margin:0 0 4px">Dziś przejechało: <b>${today}</b>. Kierunek: → z lewej strony kadru na prawą, ← odwrotnie.</p><table class="pzt">`,dd='';
 for(const e of L){const dn=pzDay(e.ts,D.teraz);if(dn!=dd){dd=dn;h+=`<tr class="pzd"><td colspan="3">${esc(dn)}</td></tr>`}
 const hm=(e.czas||'').slice(11,16);
 const kk=e.kier=='prawo'?'→':e.kier=='lewo'?'←':'·';
@@ -534,7 +547,7 @@ else{nm='Analizuję…';sb=''}
 const im=e.mini||e.crop;
 h+=`<tr class="pzr" data-b="${esc(e.b)}"><td style="width:76px">${im?`<img loading="lazy" src="${SN}${esc(im)}" onerror="this.style.visibility='hidden'">`:''}</td><td><div class="pzn">${nm}</div><div class="pzs">${sb}</div></td><td class="pzw"><b>${esc(hm)}</b><br><span class="pzk">${kk}</span></td></tr>`}
 el.innerHTML=h+'</table>'}
-document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('tr.pzr');if(t&&ALL.find(x=>x.b==t.dataset.b))openEv(t.dataset.b)});
+document.addEventListener('click',e=>{const g=e.target.closest&&e.target.closest('tr.pzg');if(g){PZO=PZO==g.dataset.k?'':g.dataset.k;pzRender();return}const t=e.target.closest&&e.target.closest('tr.pzr');if(t&&ALL.find(x=>x.b==t.dataset.b))openEv(t.dataset.b)});
 setInterval(()=>{if(TAB=='prz'&&Date.now()-PZT>10000)pzLoad()},3000);
 setTab(TAB);render();loadCfg();loadAuta();chkUrl();setInterval(()=>{render();pkRender();chkUrl();if($('tu').classList.contains('on'))tuRender();lvSync();tusSync()},1500);setInterval(lvSnap,1200);setInterval(()=>{if(!AUTA.length)loadAuta()},8000);ping();setInterval(ping,10000);document.addEventListener('visibilitychange',ping);
 </script></body></html>

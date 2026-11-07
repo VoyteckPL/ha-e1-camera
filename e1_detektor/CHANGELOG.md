@@ -281,3 +281,6 @@
 
 ## 0.18.2
 - Pełna jakość snapa: nagranie z kamery pobierane zawsze (wcześniej pomijane, gdy klip z bufora skończył się pierwszy), próg podobieństwa 0,4, komenda `dopiesc`.
+
+## 0.18.3
+- Przejazdy: widok „Auta” grupuje przejazdy po marce, modelu i kolorze (oraz tablicy, gdy Gemini ją odczyta), z licznikiem, ostatnim przejazdem i kierunkami; klik rozwija godziny.

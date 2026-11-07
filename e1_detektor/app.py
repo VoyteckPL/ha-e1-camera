@@ -523,6 +523,7 @@ PZ_STRUKTURA = {
     "kolor": {"description": "Kolor nadwozia po polsku (np. srebrny, granatowy).", "required": True, "selector": {"text": {}}},
     "typ": {"description": "Typ pojazdu.", "required": True, "selector": {"select": {"options": ["osobowy", "kombi", "SUV", "dostawczy", "ciezarowy", "autobus", "motocykl", "inny"]}}},
     "pewnosc": {"description": "Pewnosc rozpoznania marki i modelu, 0-100.", "required": True, "selector": {"number": {"min": 0, "max": 100}}},
+    "tablica": {"description": "Numer rejestracyjny TYLKO jesli jest w pelni czytelny na zdjeciu. W przeciwnym razie pusty tekst. Nie zgaduj.", "required": False, "selector": {"text": {}}},
 }
 
 
@@ -612,6 +613,7 @@ async def przejazd_wpis(b, czekaj=True):
         await asyncio.get_running_loop().run_in_executor(None, pz_miniatura, b)
         d = await przejazd_ai(b)
         await pz_ustaw(b, marka=str(d.get("marka", "")), model=str(d.get("model", "")), kolor=str(d.get("kolor", "")), typ=str(d.get("typ", "")),
+                       tablica=re.sub(r"[^A-Z0-9]", "", str(d.get("tablica", "") or "").upper())[:9],
                        pewnosc=int(float(d.get("pewnosc", 0) or 0)), status="ok", mini=f"e1_pz_{b}.jpg")
         log.info("przejazd %s: %s", b, d)
     except Exception as e:
