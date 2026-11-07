@@ -308,3 +308,6 @@
 
 ## 0.18.11
 - Przejazdy: wiele aut w jednym zdarzeniu. Plamy ruchu w strefie Droga są śledzone między klatkami; każdy tor poza głównym autem to osobny wpis (własne zdjęcie, kierunek, rozpoznanie Gemini i podmiana na pełną jakość). Komenda `przejazd_extra`.
+
+## 0.18.12
+- Log torów ruchu w strefie Droga (diagnostyka wielu aut).

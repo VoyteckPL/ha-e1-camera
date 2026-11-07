@@ -458,6 +458,7 @@ def _dodatkowe_auta(b, files, male, bg, od, FPS, kref, n_main, granica, scan, ce
                 best.append(bl)
             else:
                 tory.append([bl])
+    log.info("bufor: %s surowe tory w drodze: %d", b, len(tory))
     tory = [t for t in tory if len(t) >= 3 or (len(t) >= 2 and abs(t[-1][1] - t[0][1]) >= 0.05)]
     if not tory:
         return []
@@ -469,6 +470,7 @@ def _dodatkowe_auta(b, files, male, bg, od, FPS, kref, n_main, granica, scan, ce
                 d = math.hypot(bl[1] - mx, (bl[2] - my) * 0.7)
                 if d < gd:
                     glowny, gd = ti, d
+    log.info("bufor: %s tory ruchu w drodze: %s, glowny=%s", b, [(len(t), round(t[0][0] / FPS, 1), round(t[-1][0] / FPS, 1), round(t[0][1], 2), round(t[-1][1], 2)) for t in tory], glowny)
     wynik = []
     st160 = None
     for ti, t in enumerate(tory):
