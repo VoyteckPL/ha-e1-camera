@@ -74,7 +74,9 @@ GLOCK = asyncio.Lock()  # poprawa kadru z klipu: po jednym zdarzeniu naraz
 LAST_B = {}  # rodzaj -> ostatnie zdarzenie (nie nadpisuj nowszego powiadomienia starszym)
 
 
-def _grids():
+def _grids(IN_H=None, IN_W=None):
+    IN_H = IN_H or globals()["IN_H"]
+    IN_W = IN_W or globals()["IN_W"]
     gs, st = [], []
     for s in (8, 16, 32):
         h, w = IN_H // s, IN_W // s
@@ -86,6 +88,15 @@ def _grids():
 
 
 GRID, STRIDE = _grids()
+_GR = {}
+
+
+def _siatka(h, w):
+    if (h, w) == (IN_H, IN_W):
+        return GRID, STRIDE
+    if (h, w) not in _GR:
+        _GR[(h, w)] = _grids(h, w)
+    return _GR[(h, w)]
 
 
 def nms(boxes, scores, thr=0.45):
@@ -112,16 +123,19 @@ def nms(boxes, scores, thr=0.45):
 def detect(img: Image.Image, klasy, conf_thr, sess=None):
     """Zwraca listę (x1, y1, x2, y2, conf) w pikselach obrazu."""
     ses = sess or SESS
+    inp = ses.get_inputs()[0]
+    th, tw = int(inp.shape[2]), int(inp.shape[3])
+    grid, stride = _siatka(th, tw)
     iw, ih = img.size
-    r = min(IN_W / iw, IN_H / ih)
+    r = min(tw / iw, th / ih)
     nw, nh = max(1, int(iw * r)), max(1, int(ih * r))
     small = img.convert("RGB").resize((nw, nh), Image.BILINEAR)
-    canvas = np.full((IN_H, IN_W, 3), 114, dtype=np.uint8)
+    canvas = np.full((th, tw, 3), 114, dtype=np.uint8)
     canvas[:nh, :nw] = np.asarray(small)
     x = canvas[:, :, ::-1].transpose(2, 0, 1)[None].astype(np.float32)  # BGR, CHW
-    out = ses.run(None, {INP.name: x})[0][0]
-    out[:, :2] = (out[:, :2] + GRID) * STRIDE
-    out[:, 2:4] = np.exp(out[:, 2:4]) * STRIDE
+    out = ses.run(None, {inp.name: x})[0][0]
+    out[:, :2] = (out[:, :2] + grid) * stride
+    out[:, 2:4] = np.exp(out[:, 2:4]) * stride
     obj = out[:, 4]
     cls = out[:, 5:]
     sc = cls[:, klasy] * obj[:, None]

@@ -208,3 +208,9 @@
 - Bufor kołowy: dodatek stale nagrywa główny strumień RTSP kamery w pełnej jakości (kopiowanie, kawałki ~2 s, ostatnie 45 min na dysku). Klip zdarzenia składa się z bufora od razu (kilka sekund przed ruchem) i dokleja się w trakcie nagrywania; ścieżki z Reolinka/karty SD zostają jako zapas.
 - Przejeżdżające pojazdy: kadr wybierany z klatek bufora wokół zdarzenia (najbliżej środka strefy „Droga", cały w kadrze) zamiast jednego zdjęcia z chwili zgłoszenia.
 - /analyze: polecenia `bufor` (stan) i `bufor_test` (próba na żywo).
+
+## 0.17.1
+- Test bufora w tle, logi skanu.
+
+## 0.17.2
+- Detekcja obsluguje modele o innym rozmiarze wejscia (yolox_tiny 416) - do szybkiego przegladania klatek z bufora.
