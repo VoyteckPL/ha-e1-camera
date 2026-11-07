@@ -305,3 +305,6 @@
 
 ## 0.18.10
 - Panel v49: ręczne oznaczanie aut domyślnie ukryte (włączane w Ustawieniach, per urządzenie); w „Na żywo” sekcje „Wykrywanie (AI)” i „Obraz” zwinięte domyślnie (zapamiętują rozwinięcie).
+
+## 0.18.11
+- Przejazdy: wiele aut w jednym zdarzeniu. Plamy ruchu w strefie Droga są śledzone między klatkami; każdy tor poza głównym autem to osobny wpis (własne zdjęcie, kierunek, rozpoznanie Gemini i podmiana na pełną jakość). Komenda `przejazd_extra`.

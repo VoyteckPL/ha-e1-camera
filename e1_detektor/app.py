@@ -425,7 +425,95 @@ KIER = {}  # b -> 'prawo' / 'lewo' / '?' (kierunek jazdy w kadrze)
 PEND = {}  # b -> (czas klatki, mapa ruchu, ramka) do podmiany na pelna klatke z nagrania kamery
 
 
-def najlepsza_klatka_sync(b, klasy, granica, t0=None):
+EXTRA = {}  # b -> lista dodatkowych aut jadacych droga w tym samym zdarzeniu [{key, ts, kier}]
+
+
+def _dodatkowe_auta(b, files, male, bg, od, FPS, kref, n_main, granica, scan, cel):
+    """Sledzi plamy ruchu w strefie Droga na klatkach lekkiego strumienia; kazdy tor poza torem glownego auta to osobny przejazd
+    (dwa auta w kadrze naraz albo jedno po drugim w jednym zdarzeniu). Zwraca [{key, ts, kier}], zapisuje zdjecie i wycinek kazdego."""
+    import cv2
+    cfg = strefy.wczytaj(granica)
+    droga = next((z["pts"] for z in cfg.get("strefy", []) if "droga" in z.get("nazwa", "").lower() and z.get("pts")), None)
+    if not droga:
+        return []
+    kern = np.ones((3, 3), np.uint8)
+    tory = []
+    for k, a in enumerate(male):
+        m = (np.abs(a - bg) > 28).astype(np.uint8)
+        if not (0.004 <= float(m.mean()) <= 0.6):
+            continue
+        nl, _lab, st, cen = cv2.connectedComponentsWithStats(cv2.dilate(m, kern), connectivity=8)
+        for i in range(1, nl):
+            x, y, w, h, ar = [int(v) for v in st[i]]
+            if ar < 25 or not strefy.w_wielokacie((x + w / 2) / 80 * 1000, (y + h) / 60 * 1000, droga):
+                continue
+            bl = (k, float(cen[i][0]) / 80, float(cen[i][1]) / 60, ar, (x / 80, y / 60, (x + w) / 80, (y + h) / 60))
+            best, bd = None, 0.3
+            for t in tory:
+                if t[-1][0] < k and k - t[-1][0] <= 3:
+                    d = math.hypot(bl[1] - t[-1][1], (bl[2] - t[-1][2]) * 0.7)
+                    if d < bd:
+                        best, bd = t, d
+            if best is not None:
+                best.append(bl)
+            else:
+                tory.append([bl])
+    tory = [t for t in tory if len(t) >= 3 or (len(t) >= 2 and abs(t[-1][1] - t[0][1]) >= 0.05)]
+    if not tory:
+        return []
+    mx, my = (n_main[0] + n_main[2]) / 2, (n_main[1] + n_main[3]) / 2
+    glowny, gd = None, 0.2
+    for ti, t in enumerate(tory):
+        for bl in t:
+            if abs(bl[0] - kref) <= 1:
+                d = math.hypot(bl[1] - mx, (bl[2] - my) * 0.7)
+                if d < gd:
+                    glowny, gd = ti, d
+    wynik = []
+    st160 = None
+    for ti, t in enumerate(tory):
+        if ti == glowny or len(wynik) >= 3:
+            continue
+        bl = max(t, key=lambda q: q[3] * max(0.15, 1.0 - math.hypot(q[1] - cel[0], (q[2] - cel[1]) * 0.7) * 1.4))
+        k = bl[0]
+        img = Image.open(files[k])
+        img.load()
+        img = img.convert("RGB")
+        iw, ih = img.size
+        bb = bl[4]
+        ex, ey = (bb[2] - bb[0]) * 0.15, (bb[3] - bb[1]) * 0.15
+        bbx = (bb[0] - ex, bb[1] - ey, bb[2] + ex, bb[3] + ey)
+        wyb = None
+        for bx in detect(img, KLASY["pojazd"], MIN_CONF * 0.9, sess=scan):
+            nb = _norm(bx, iw, ih)
+            cxb, cyb = (nb[0] + nb[2]) / 2, (nb[1] + nb[3]) / 2
+            if _iou(nb, bbx) > 0.15 or (bbx[0] <= cxb <= bbx[2] and bbx[1] <= cyb <= bbx[3]):
+                if wyb is None or _iou(nb, bbx) > _iou(_norm(wyb, iw, ih), bbx):
+                    wyb = bx
+        if wyb is None:
+            continue
+        nb = _norm(wyb, iw, ih)
+        if abs(k - kref) <= 4 and _iou(nb, n_main) > 0.3:
+            continue  # to samo auto co glowne
+        if not strefy.w_wielokacie((nb[0] + nb[2]) / 2 * 1000, nb[3] * 1000, droga):
+            continue
+        if st160 is None:
+            st160 = np.stack([np.asarray(Image.open(f).convert("L").resize((160, 120)), dtype=np.float32) for f in files])
+            med160 = np.median(st160, 0)
+        key = f"{b}_x{len(wynik) + 1}"
+        fg_ref = np.clip(np.abs(st160[k] - med160) / 64.0, 0, 1)
+        img.save(SNAP / f"e1_best_{key}.jpg", quality=92)
+        _best, rect, _n = wybierz_kadr([wyb], iw, ih)
+        zapisz_kadr(img, rect, SNAP / f"e1_crop_{key}.jpg")
+        ts_k = od + k / FPS
+        KIER[key] = kierunek_z_ruchu([(q[0], q[1], q[2]) for q in t])
+        PEND[key] = (ts_k, fg_ref, list(nb))
+        wynik.append({"key": key, "ts": ts_k, "kier": KIER[key]})
+        log.info("bufor: %s dodatkowe auto %s @%.1f s, kierunek %s, tor %d klatek", b, key, ts_k - (od + PRZED_S), KIER[key], len(t))
+    return wynik
+
+
+def najlepsza_klatka_sync(b, klasy, granica, t0=None, extra=False):
     """Szuka na lekkim strumieniu (bufor 's') chwili, gdy pojazd jest najblizej srodka drogi, a pelna klatke bierze z glownego."""
     if t0 is None:
         t = reolink.czas_zdarzenia(b)
@@ -518,6 +606,11 @@ def najlepsza_klatka_sync(b, klasy, granica, t0=None):
         if klasy == KLASY["pojazd"]:
             zapamietaj(surowe or [wybrany], iw, ih, b)
         log.info("bufor: %s najlepsza klatka @%.1f s po zdarzeniu, razem %.1f s, conf %.2f", b, tc - t0, time.time() - ts, wybrany[4])
+        if extra and pojazd:
+            try:
+                EXTRA[b] = _dodatkowe_auta(b, files, male, bg, od, FPS, kref, list(n), granica, scan, (cx, cy))
+            except Exception:
+                log.exception("dodatkowe auta %s", b)
         return img, [wybrany], pf.name
     finally:
         shutil.rmtree(tmpd, ignore_errors=True)
@@ -619,10 +712,11 @@ async def przejazd_ai(b):
     return (r.get("response") or {}).get("data") or {}
 
 
-async def przejazd_wpis(b, czekaj=True):
+async def przejazd_wpis(b, czekaj=True, ts=None):
     """Dodaje przejazd do tabeli od razu (godzina, kierunek), potem dopisuje rozpoznanie z Gemini na najlepszym dostepnym wycinku."""
-    t = reolink.czas_zdarzenia(b)
-    ts = time.mktime(t.timetuple()) if t else time.time()
+    if ts is None:
+        t = reolink.czas_zdarzenia(b)
+        ts = time.mktime(t.timetuple()) if t else time.time()
     await pz_ustaw(b, ts=ts, czas=time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts)), kier=KIER.get(b, "?"), crop=f"e1_crop_{b}.jpg", status="analiza")
     if czekaj:
         for _ in range(45):  # do ~90 s: czekamy na wycinek w pelnej jakosci z nagrania kamery
@@ -641,9 +735,10 @@ async def przejazd_wpis(b, czekaj=True):
         await pz_ustaw(b, status="blad", blad=str(e)[:120], mini=f"e1_pz_{b}.jpg" if (SNAP / f"e1_pz_{b}.jpg").exists() else "")
 
 
-def dopieszcz_sync(b, klasy):
+def dopieszcz_sync(b, klasy, k=None):
     """Po nagraniu z kamery: znajduje w nim klatke z autem tak jak na wybranej klatce lekkiego strumienia i podmienia snap/wycinek na pelna jakosc."""
-    tc, fg_ref, n = PEND.pop(b)
+    k = k or b
+    tc, fg_ref, n = PEND.pop(k)
     fs = reolink.START.get(b)
     clip = SNAP / f"e1_v_{b}.mp4"
     if fs is None or not clip.exists():
@@ -669,11 +764,11 @@ def dopieszcz_sync(b, klasy):
         fg = np.clip(np.abs(fr - bg) / 64.0, 0, 1)[ay0:ay1, ax0:ax1]
         pod.append(float((fg * ref).sum() / (np.sqrt((fg * fg).sum()) * nr + 1e-6)))
     i = int(np.argmax(pod))
-    log.info("dopieszczanie %s: klatek %d, najlepsza %d (%+.1f s od oczekiwanej), podobienstwo %.2f", b, m, i, od + i / fps - off, pod[i])
+    log.info("dopieszczanie %s: klatek %d, najlepsza %d (%+.1f s od oczekiwanej), podobienstwo %.2f", k, m, i, od + i / fps - off, pod[i])
     if pod[i] < 0.4:
         return False
-    pf = SNAP / f"e1_best_{b}.jpg"
-    tmp = SNAP / f"e1_best_{b}.tmp.jpg"
+    pf = SNAP / f"e1_best_{k}.jpg"
+    tmp = SNAP / f"e1_best_{k}.tmp.jpg"
     r2 = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{od + i / fps:.2f}", "-i", str(clip), "-frames:v", "1", "-q:v", "2", str(tmp)], capture_output=True, timeout=120)
     if r2.returncode != 0 or not tmp.exists() or tmp.stat().st_size < 1000:
         return False
@@ -692,9 +787,9 @@ def dopieszcz_sync(b, klasy):
     if wyb is None:
         wyb = (*sx, 0.5)
     best, rect, _n = wybierz_kadr([wyb], iw, ih)
-    zapisz_kadr(img, rect, SNAP / f"e1_crop_{b}.jpg")
+    zapisz_kadr(img, rect, SNAP / f"e1_crop_{k}.jpg")
     tmp.replace(pf)
-    log.info("dopieszczanie %s: podmieniono snap i wycinek na klatke w pelnej jakosci (%dx%d)", b, iw, ih)
+    log.info("dopieszczanie %s: podmieniono snap i wycinek na klatke w pelnej jakosci (%dx%d)", k, iw, ih)
     return True
 
 
@@ -705,6 +800,13 @@ async def rl_i_dopieszcz(b, rodzaj, klasy):
             await asyncio.get_running_loop().run_in_executor(None, dopieszcz_sync, b, klasy)
         except Exception:
             log.exception("dopieszczanie %s", b)
+    for kk in [x for x in list(PEND) if x.startswith(b + "_x")]:
+        if ok:
+            try:
+                await asyncio.get_running_loop().run_in_executor(None, dopieszcz_sync, b, klasy, kk)
+            except Exception:
+                log.exception("dopieszczanie %s", kk)
+        PEND.pop(kk, None)
     PEND.pop(b, None)
 
 
@@ -1472,6 +1574,19 @@ async def analyze(request):
                     return "ok"
                 _TEST["nw"] = await asyncio.get_running_loop().run_in_executor(None, _nw)
                 return web.json_response({"ok": True, "wynik": _TEST["nw"]})
+            if dane.get("cmd") == "przejazd_extra":
+                _b = str(dane.get("b", ""))
+                async def _pe():
+                    async with LOCK:
+                        await asyncio.get_running_loop().run_in_executor(None, najlepsza_klatka_sync, _b, KLASY["pojazd"], "", None, True)
+                    ex = EXTRA.pop(_b, [])
+                    _TEST["extra"] = ex
+                    for e in ex:
+                        asyncio.create_task(przejazd_wpis(e["key"], ts=e["ts"]))
+                    if ex:
+                        asyncio.create_task(rl_i_dopieszcz(_b, "pojazd", KLASY["pojazd"]))
+                asyncio.create_task(_pe())
+                return web.json_response({"ok": True})
             if dane.get("cmd") == "bufor_wynik":
                 return web.json_response({"ok": True, "wynik": _TEST})
             if dane.get("cmd") == "sd_test":
@@ -1568,7 +1683,7 @@ async def analyze(request):
             if tz0:
                 await bufor.czekaj(min(time.mktime(tz0.timetuple()) + (4.0 if rodzaj == "pojazd" else 3.5), time.time() + 6), 7.0)
             try:
-                wynik = await loop.run_in_executor(None, najlepsza_klatka_sync, b, klasy, granica)
+                wynik = await loop.run_in_executor(None, najlepsza_klatka_sync, b, klasy, granica, None, True)
             except Exception:
                 log.exception("najlepsza klatka %s", b)
             if wynik:
@@ -1625,6 +1740,9 @@ async def analyze(request):
     asyncio.create_task(rl_i_dopieszcz(b, rodzaj, klasy))
     if rodzaj == "pojazd" and res["found"] and "droga" in str(res.get("strefa", "")).lower():
         asyncio.create_task(przejazd_wpis(b))
+    if rodzaj == "pojazd" and res["found"]:
+        for ex in EXTRA.pop(b, []):
+            asyncio.create_task(przejazd_wpis(ex["key"], ts=ex["ts"]))
     log.info("analiza %s %s -> %s", b, rodzaj, {k: res.get(k) for k in ("found", "conf", "strefa", "powiadom", "historia", "zrodlo", "czas")})
     return web.json_response(res)
 
