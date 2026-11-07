@@ -84,8 +84,8 @@ input[type=text]{font:inherit;padding:6px 8px;border-radius:10px;border:1px soli
 /* ---- uklad telefonu ---- */
 main{padding-bottom:calc(84px + env(safe-area-inset-bottom))}
 .tab{display:none;padding:10px 12px calc(90px + env(safe-area-inset-bottom))}
-body[data-tab=live] #tl,body[data-tab=ust] #ts,body[data-tab=park] #tp{display:block}
-body[data-tab=live] header,body[data-tab=ust] header,body[data-tab=park] header,body[data-tab=live] #m,body[data-tab=ust] #m,body[data-tab=park] #m,body[data-tab=live] #pk,body[data-tab=ust] #pk,body[data-tab=park] #pk{display:none!important}
+body[data-tab=live] #tl,body[data-tab=ust] #ts,body[data-tab=park] #tp,body[data-tab=prz] #tz{display:block}
+body[data-tab=prz] header,body[data-tab=prz] #m,body[data-tab=prz] #pk,body[data-tab=live] header,body[data-tab=ust] header,body[data-tab=park] header,body[data-tab=live] #m,body[data-tab=ust] #m,body[data-tab=park] #m,body[data-tab=live] #pk,body[data-tab=ust] #pk,body[data-tab=park] #pk{display:none!important}
 .pkc{background:var(--cd);border:1px solid var(--bd);border-radius:14px;padding:12px;margin:0 0 10px}
 .pkc h3{margin:0 0 2px;font-size:16px;display:flex;align-items:center;gap:8px}.pkc h3 i{width:12px;height:12px;border-radius:50%;display:inline-block}
 .pkc .st{font-size:13px;color:var(--mu);margin:0 0 8px}.pkc .st b{color:var(--tx)}
@@ -97,7 +97,8 @@ body[data-tab=live] header,body[data-tab=ust] header,body[data-tab=park] header,
 #nav{position:fixed;left:0;right:0;bottom:0;z-index:12;display:flex;background:var(--cd);border-top:1px solid var(--bd);padding-bottom:env(safe-area-inset-bottom)}
 #nav button{flex:1;border:0;background:none;color:var(--mu);font:inherit;font-size:12px;padding:8px 4px 6px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;min-height:56px}
 #nav button i{font-style:normal;font-size:22px;line-height:1}
-body[data-tab=zd] #nav [data-tab=zd],body[data-tab=live] #nav [data-tab=live],body[data-tab=ust] #nav [data-tab=ust],body[data-tab=park] #nav [data-tab=park]{color:var(--ac);font-weight:600}
+body[data-tab=zd] #nav [data-tab=zd],body[data-tab=live] #nav [data-tab=live],body[data-tab=ust] #nav [data-tab=ust],body[data-tab=park] #nav [data-tab=park],body[data-tab=prz] #nav [data-tab=prz]{color:var(--ac);font-weight:600}
+.pzt{width:100%;border-collapse:collapse}.pzt td{padding:8px 4px;border-top:1px solid var(--bd);vertical-align:middle}.pzt tr.pzr{cursor:pointer}.pzt img{width:72px;height:54px;object-fit:contain;background:#000;border-radius:8px;display:block}.pzt .pzn{font-weight:600;font-size:15px}.pzt .pzs{font-size:12px;color:var(--mu)}.pzt .pzw{text-align:right;white-space:nowrap;font-size:13px}.pzt .pzw b{font-size:15px}.pzt .pzk{font-size:18px;line-height:1}.pzd td{border-top:0;padding:14px 4px 4px;font-size:13px;color:var(--mu);font-weight:600}
 .btn.big{padding:12px 14px;font-size:15px;border-radius:12px;width:100%}
 .btn{min-height:34px}.row{flex-wrap:wrap}.tc .row,.card .row{justify-content:flex-start}.tc .row .btn,.card .row .btn{flex:1 1 0;padding:7px 4px;white-space:nowrap;text-align:center}
 .chip{padding:7px 13px;font-size:14px}
@@ -119,13 +120,14 @@ body[data-tab=zd] #nav [data-tab=zd],body[data-tab=live] #nav [data-tab=live],bo
 
 <section id="tl" class="tab"></section>
 <section id="tp" class="tab"></section>
+<section id="tz" class="tab"></section>
 <section id="ts" class="tab">
 <div class="set"><h3>Strefy i powiadomienia</h3><p class="opis" style="margin:0">Rysowanie stref na zdjęciu oraz osobne powiadomienia dla osób, aut i zwierząt w każdej strefie.</p><button class="btn pri big" id="stb">Otwórz</button></div>
 <div class="set"><h3>Strojenie</h3><p class="opis" style="margin:0" id="tus">Zbieranie danych do uczenia czułości.</p><button class="btn big" id="tub">Pokaż dane</button></div>
 <div class="set"><h3>Historia</h3><p class="opis" style="margin:0">Usuwa wszystkie zdarzenia z panelu (pliki zostaną posprzątane automatycznie).</p><button class="btn big" id="clr">Wyczyść historię</button></div>
-<p class="opis" style="text-align:center">Panel kamery v45</p>
+<p class="opis" style="text-align:center">Panel kamery v46</p>
 </section>
-<nav id="nav"><button data-tab="zd"><i>🗂</i><span>Zdarzenia</span></button><button data-tab="live"><i>🎥</i><span>Na żywo</span></button><button data-tab="park"><i>🅿️</i><span>Parking</span></button><button data-tab="ust"><i>⚙️</i><span>Ustawienia</span></button></nav>
+<nav id="nav"><button data-tab="zd"><i>🗂</i><span>Zdarzenia</span></button><button data-tab="live"><i>🎥</i><span>Na żywo</span></button><button data-tab="park"><i>🅿️</i><span>Parking</span></button><button data-tab="prz"><i>🚗</i><span>Przejazdy</span></button><button data-tab="ust"><i>⚙️</i><span>Ustawienia</span></button></nav>
 
 <div id="st" class="full"><h1 style="padding-top:8px"><span>Strefy i powiadomienia <span id="sv"></span> <small style="color:var(--mu);font-weight:400">v42</small></span><button class="btn" id="stx">Zamknij</button></h1>
 <p class="opis">Narysuj strefy na zdjęciu (punkty przyciągają się do innych stref i krawędzi), nazwij je i ustaw osobne powiadomienia. Wszystko poza strefami to „Poza strefami”. Zmiany zapisują się same.</p>
@@ -368,7 +370,7 @@ el.innerHTML=`<p class="opis">Tryb: <b>${esc(tr)}</b>. Uczenie startuje po kilku
 /* ---------- zakladki ---------- */
 let TAB='zd';
 try{TAB=localStorage.getItem('ktab')||'zd'}catch(e){}
-function setTab(t){TAB=t;document.body.dataset.tab=t;try{localStorage.setItem('ktab',t)}catch(e){}$('ttl').textContent=t=='live'?'Na żywo':t=='ust'?'Ustawienia':t=='park'?'Parking':'Zdarzenia';scrollTo(0,0);if(t=='park')tpLoad();if(t=='live'){lvBuild();lvSnap();lvSync()}if(t=='ust')tusSync();if(t=='zd'){last='';render()}}
+function setTab(t){TAB=t;document.body.dataset.tab=t;try{localStorage.setItem('ktab',t)}catch(e){}$('ttl').textContent=t=='live'?'Na żywo':t=='ust'?'Ustawienia':t=='park'?'Parking':t=='prz'?'Przejazdy':'Zdarzenia';scrollTo(0,0);if(t=='park')tpLoad();if(t=='prz')pzLoad();if(t=='live'){lvBuild();lvSnap();lvSync()}if(t=='ust')tusSync();if(t=='zd'){last='';render()}}
 /* ---------- na zywo: podglad + suwaki + presety ---------- */
 const LVC='camera.e1_outdoor_wysoka_rozdzielczosc';
 const N='number.e1_outdoor_';
@@ -513,5 +515,26 @@ h+='<p class="opis">Skan podjazdu co 10 min, więc godziny są z dokładnością
 el.innerHTML=h}
 document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('[data-tpr],#tpscan');if(!t)return;if(t.dataset.tpr){TPR=t.dataset.tpr;try{localStorage.setItem('tpr',TPR)}catch(_){}tpRender()}else{t.textContent='Skanuję…';api({cmd:'parking_skan'}).catch(()=>{}).then(()=>setTimeout(tpLoad,500))}});
 setInterval(()=>{if(TAB=='park'&&Date.now()-TPT>30000)tpLoad()},5000);
+
+/* ---- zakladka Przejazdy: auta jadace droga (godzina, kierunek, rozpoznanie Gemini) ---- */
+let PZD=null,PZT=0;
+async function pzLoad(){PZT=Date.now();try{PZD=await api({cmd:'przejazdy',n:200})}catch(e){}pzRender()}
+function pzDay(ts,ref){const d=new Date(ts*1000),r=new Date(ref*1000);if(d.toDateString()==r.toDateString())return 'Dziś';const y=new Date(ref*1000-86400000);if(d.toDateString()==y.toDateString())return 'Wczoraj';return d.toLocaleDateString('pl-PL',{weekday:'long',day:'numeric',month:'long'})}
+function pzRender(){const el=$('tz');if(!el)return;const D=PZD;if(!D){el.innerHTML='<p class="opis">Ładuję…</p>';return}
+const L=D.lista||[];if(!L.length){el.innerHTML='<p class="opis">Brak przejazdów. Auta jadące drogą pojawią się tu po przejeździe, z godziną, kierunkiem i rozpoznaną marką.</p>';return}
+const today=L.filter(e=>pzDay(e.ts,D.teraz)=='Dziś').length;
+let h=`<p class="opis" style="margin:0 0 4px">Dziś przejechało: <b>${today}</b>. Kierunek: → z lewej strony kadru na prawą, ← odwrotnie.</p><table class="pzt">`,dd='';
+for(const e of L){const dn=pzDay(e.ts,D.teraz);if(dn!=dd){dd=dn;h+=`<tr class="pzd"><td colspan="3">${esc(dn)}</td></tr>`}
+const hm=(e.czas||'').slice(11,16);
+const kk=e.kier=='prawo'?'→':e.kier=='lewo'?'←':'·';
+let nm,sb;
+if(e.status=='ok'){const mk=[e.marka,e.model].filter(x=>x&&!/^nie/i.test(x)).join(' ');nm=esc(mk||'Nieznane auto');sb=esc([e.kolor,e.typ].filter(Boolean).join(' · '))+(e.pewnosc!=null?` · ${e.pewnosc}%`:'')}
+else if(e.status=='blad'){nm='Brak rozpoznania';sb='nie udało się zapytać AI'}
+else{nm='Analizuję…';sb=''}
+const im=e.mini||e.crop;
+h+=`<tr class="pzr" data-b="${esc(e.b)}"><td style="width:76px">${im?`<img loading="lazy" src="${SN}${esc(im)}" onerror="this.style.visibility='hidden'">`:''}</td><td><div class="pzn">${nm}</div><div class="pzs">${sb}</div></td><td class="pzw"><b>${esc(hm)}</b><br><span class="pzk">${kk}</span></td></tr>`}
+el.innerHTML=h+'</table>'}
+document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('tr.pzr');if(t&&ALL.find(x=>x.b==t.dataset.b))openEv(t.dataset.b)});
+setInterval(()=>{if(TAB=='prz'&&Date.now()-PZT>10000)pzLoad()},3000);
 setTab(TAB);render();loadCfg();loadAuta();chkUrl();setInterval(()=>{render();pkRender();chkUrl();if($('tu').classList.contains('on'))tuRender();lvSync();tusSync()},1500);setInterval(lvSnap,1200);setInterval(()=>{if(!AUTA.length)loadAuta()},8000);ping();setInterval(ping,10000);document.addEventListener('visibilitychange',ping);
 </script></body></html>

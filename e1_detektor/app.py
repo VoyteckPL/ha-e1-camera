@@ -401,6 +401,7 @@ def _cel_drogi(cfg):
 
 
 PRZED_S = 8.0
+KIER = {}  # b -> 'prawo' / 'lewo' / '?' (kierunek jazdy w kadrze)
 PEND = {}  # b -> (czas klatki, mapa ruchu, ramka) do podmiany na pelna klatke z nagrania kamery
 
 
@@ -430,6 +431,7 @@ def najlepsza_klatka_sync(b, klasy, granica, t0=None):
             male.append(np.asarray(im.convert("L").resize((80, 60)), dtype=np.float32))
         bg = np.median(np.stack(male), 0)
         ocena_ruchu = []
+        traj = []
         for k, a in enumerate(male):
             m = np.abs(a - bg) > 28
             ar = float(m.mean())
@@ -437,8 +439,10 @@ def najlepsza_klatka_sync(b, klasy, granica, t0=None):
                 continue
             ys, xs = np.nonzero(m)
             mx, my = float(xs.mean()) / 80, float(ys.mean()) / 60
+            traj.append((k, mx, my))
             ocena_ruchu.append((min(ar * 20, 1.0) * max(0.15, 1.0 - math.hypot(mx - cx, (my - cy) * 0.7) * 1.4), k))
         ocena_ruchu.sort(reverse=True)
+        KIER[b] = kierunek_z_ruchu(traj)
         wybor = []
         for _, k in ocena_ruchu:
             if all(abs(k - j) >= 2 for j in wybor):
@@ -494,6 +498,122 @@ def najlepsza_klatka_sync(b, klasy, granica, t0=None):
         return img, [wybrany], pf.name
     finally:
         shutil.rmtree(tmpd, ignore_errors=True)
+
+
+def kierunek_z_ruchu(traj):
+    """traj: (nr klatki, x, y) srodka ruchu; zwraca 'prawo' / 'lewo' / '?' (w kadrze, w prawo = z lewej do prawej)."""
+    if len(traj) < 3:
+        return "?"
+    traj = sorted(traj)
+    n = max(1, len(traj) // 3)
+    d = sum(t[1] for t in traj[-n:]) / n - sum(t[1] for t in traj[:n]) / n
+    return "prawo" if d > 0.06 else "lewo" if d < -0.06 else "?"
+
+
+# ---------------- zakladka Przejazdy: lista aut jadacych droga + rozpoznanie przez Gemini ----------------
+PZ_PLIK = Path("/data/przejazdy.json")
+PZ_LOCK = asyncio.Lock()
+PZ_DNI = 30
+PZ_STRUKTURA = {
+    "marka": {"description": "Marka samochodu (np. Skoda, Volkswagen). Gdy nie da sie ustalic: nieznana.", "required": True, "selector": {"text": {}}},
+    "model": {"description": "Najbardziej prawdopodobny model i generacja (np. Octavia III). Gdy nie da sie ustalic: nieznany.", "required": True, "selector": {"text": {}}},
+    "kolor": {"description": "Kolor nadwozia po polsku (np. srebrny, granatowy).", "required": True, "selector": {"text": {}}},
+    "typ": {"description": "Typ pojazdu.", "required": True, "selector": {"select": {"options": ["osobowy", "kombi", "SUV", "dostawczy", "ciezarowy", "autobus", "motocykl", "inny"]}}},
+    "pewnosc": {"description": "Pewnosc rozpoznania marki i modelu, 0-100.", "required": True, "selector": {"number": {"min": 0, "max": 100}}},
+}
+
+
+def pz_wczytaj():
+    try:
+        return json.loads(PZ_PLIK.read_text())
+    except Exception:
+        return []
+
+
+def pz_zapisz(lista):
+    PZ_PLIK.parent.mkdir(parents=True, exist_ok=True)
+    gr = time.time() - PZ_DNI * 86400
+    lista = [e for e in lista if e.get("ts", 0) >= gr][-1000:]
+    tmp = PZ_PLIK.with_suffix(".tmp")
+    tmp.write_text(json.dumps(lista, ensure_ascii=False))
+    tmp.replace(PZ_PLIK)
+
+
+async def pz_ustaw(b, **pola):
+    async with PZ_LOCK:
+        lista = pz_wczytaj()
+        for e in lista:
+            if e.get("b") == b:
+                e.update(pola)
+                break
+        else:
+            lista.append(dict(b=b, **pola))
+        pz_zapisz(lista)
+
+
+def pz_miniatura(b):
+    """Mala miniatura trzymana dluzej niz zdjecia zdarzen (do tabeli)."""
+    src = SNAP / f"e1_crop_{b}.jpg"
+    if not src.exists():
+        return False
+    im = Image.open(src)
+    im.load()
+    im = im.convert("RGB")
+    im.thumbnail((360, 360))
+    im.save(SNAP / f"e1_pz_{b}.jpg", "JPEG", quality=82)
+    return True
+
+
+def pz_dla_ai(b):
+    """Kopia wycinka w /media (tam widzi go HA) w rozsadnym rozmiarze; zwraca media_content_id."""
+    src = SNAP / f"e1_crop_{b}.jpg"
+    im = Image.open(src)
+    im.load()
+    im = im.convert("RGB")
+    im.thumbnail((1024, 1024))
+    d = MEDIA / "e1_ai"
+    d.mkdir(parents=True, exist_ok=True)
+    im.save(d / f"{b}.jpg", "JPEG", quality=88)
+    return f"media-source://media_source/local/e1_ai/{b}.jpg"
+
+
+async def przejazd_ai(b):
+    mid = await asyncio.get_running_loop().run_in_executor(None, pz_dla_ai, b)
+    zad = (
+        "Na zdjeciu z kamery monitoringu jest samochod przejezdzajacy ulica. Rozpoznaj go. "
+        "Jesli widac kilka aut, opisz to na srodku/najwieksze. Zgaduj najbardziej prawdopodobny model, a pewnosc oceniaj uczciwie."
+    )
+    async with reolink.HA() as ha:
+        r = await ha.cmd({
+            "type": "call_service", "domain": "ai_task", "service": "generate_data", "return_response": True,
+            "service_data": {
+                "entity_id": "ai_task.google_ai_task", "task_name": "przejazd", "instructions": zad,
+                "structure": PZ_STRUKTURA,
+                "attachments": [{"media_content_id": mid, "media_content_type": "image/jpeg"}],
+            },
+        })
+    return (r.get("response") or {}).get("data") or {}
+
+
+async def przejazd_wpis(b, czekaj=True):
+    """Dodaje przejazd do tabeli od razu (godzina, kierunek), potem dopisuje rozpoznanie z Gemini na najlepszym dostepnym wycinku."""
+    t = reolink.czas_zdarzenia(b)
+    ts = time.mktime(t.timetuple()) if t else time.time()
+    await pz_ustaw(b, ts=ts, czas=time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts)), kier=KIER.get(b, "?"), crop=f"e1_crop_{b}.jpg", status="analiza")
+    if czekaj:
+        for _ in range(45):  # do ~90 s: czekamy na wycinek w pelnej jakosci z nagrania kamery
+            if b not in PEND:
+                break
+            await asyncio.sleep(2)
+    try:
+        await asyncio.get_running_loop().run_in_executor(None, pz_miniatura, b)
+        d = await przejazd_ai(b)
+        await pz_ustaw(b, marka=str(d.get("marka", "")), model=str(d.get("model", "")), kolor=str(d.get("kolor", "")), typ=str(d.get("typ", "")),
+                       pewnosc=int(float(d.get("pewnosc", 0) or 0)), status="ok", mini=f"e1_pz_{b}.jpg")
+        log.info("przejazd %s: %s", b, d)
+    except Exception as e:
+        log.exception("przejazd_ai %s", b)
+        await pz_ustaw(b, status="blad", blad=str(e)[:120], mini=f"e1_pz_{b}.jpg" if (SNAP / f"e1_pz_{b}.jpg").exists() else "")
 
 
 def dopieszcz_sync(b, klasy):
@@ -1276,6 +1396,14 @@ async def analyze(request):
                 async with GLOCK:
                     await asyncio.get_running_loop().run_in_executor(None, skan_sync)
                 return web.json_response({"ok": True})
+            if dane.get("cmd") == "przejazdy":
+                lst = pz_wczytaj()
+                lst.sort(key=lambda e: -e.get("ts", 0))
+                return web.json_response({"ok": True, "teraz": time.time(), "lista": lst[: int(dane.get("n", 200))]})
+            if dane.get("cmd") == "przejazd_test":
+                _b = str(dane.get("b", ""))
+                asyncio.create_task(przejazd_wpis(_b, czekaj=False))
+                return web.json_response({"ok": True})
             if dane.get("cmd") == "parking":
                 hh = _hist_load()
                 return web.json_response({"ok": True, "teraz": time.time(), "sesje": hh["sesje"], "auta": auta.lista()})
@@ -1400,6 +1528,8 @@ async def analyze(request):
         asyncio.create_task(sledz_pojazd(b, res["strefa"], hm2, granica, res.get("pelny", "")))
     asyncio.create_task(przygotuj_wideo(b))
     asyncio.create_task(rl_i_dopieszcz(b, rodzaj, klasy))
+    if rodzaj == "pojazd" and res["found"] and "droga" in str(res.get("strefa", "")).lower():
+        asyncio.create_task(przejazd_wpis(b))
     log.info("analiza %s %s -> %s", b, rodzaj, {k: res.get(k) for k in ("found", "conf", "strefa", "powiadom", "historia", "zrodlo", "czas")})
     return web.json_response(res)
 
@@ -1416,6 +1546,12 @@ async def sprzatanie():
                 for f in SNAP.glob(pat):
                     if f.stat().st_mtime < gr:
                         f.unlink(missing_ok=True)
+            for f in SNAP.glob("e1_pz_*.jpg"):
+                if f.stat().st_mtime < time.time() - PZ_DNI * 86400:
+                    f.unlink(missing_ok=True)
+            for f in (MEDIA / "e1_ai").glob("*.jpg"):
+                if f.stat().st_mtime < time.time() - 3600:
+                    f.unlink(missing_ok=True)
             for f in MEDIA.glob("e1_rec_*.mp4"):
                 if f.stat().st_mtime < time.time() - 3 * 3600:
                     f.unlink(missing_ok=True)

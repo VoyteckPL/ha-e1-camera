@@ -272,3 +272,6 @@
 
 ## 0.17.21
 - Snap przejazdu z klatki lekkiego strumienia (główny bufor bywa rozjechany/bez auta), po nagraniu z kamery podmiana na pełną jakość (dopasowanie po ruchu w jej własnej osi czasu).
+
+## 0.18.0
+- Nowa zakładka „Przejazdy”: auta jadące drogą z godziną, kierunkiem (z ruchu w kadrze) i rozpoznaniem marki/modelu/koloru/typu przez Gemini (ai_task.google_ai_task), miniatury trzymane 30 dni.
