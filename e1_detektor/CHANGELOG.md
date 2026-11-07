@@ -257,3 +257,6 @@
 
 ## 0.17.16
 - diag2 (diagnostyka głównego strumienia).
+
+## 0.17.17
+- diag2: niższy próg.
