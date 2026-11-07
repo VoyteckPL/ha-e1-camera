@@ -27,6 +27,48 @@ POST = 28.0      # s po poczatku zdarzenia w klipie
 RTSP_PORT = 554
 RE = re.compile(r"[ms]_(\d+)\.ts$")
 _stan = {"start": 0.0, "restarty": 0, "blad": ""}
+TT = {"m": {}, "s": {}}  # dokladny czas poczatku kawalka (epoch, ulamki s): nazwa pliku ma tylko pelne sekundy i jitter ~1 s
+_TTF = DIR / "tt.json"
+_tt_zapis = [0.0]
+
+
+def _tt_wczytaj():
+    try:
+        import json
+        d = json.loads(_TTF.read_text())
+        for pre in ("m", "s"):
+            TT[pre] = {int(k): float(v) for k, v in d.get(pre, {}).items()}
+    except Exception:
+        pass
+
+
+def odswiez(pre):
+    """Z listy kawalkow ffmpeg (czas strumienia, co do ulamka s) wylicza dokladny czas zegara Pi: kotwica = mediana (nazwa+0.5 - start)."""
+    try:
+        rows = []
+        for ln in (DIR / f"{pre}_list.csv").read_text().splitlines():
+            a = ln.split(",")
+            m = RE.search(a[0]) if len(a) >= 3 else None
+            if m:
+                rows.append((int(m.group(1)), float(a[1])))
+        if len(rows) < 4:
+            return
+        ank = float(np.median([n + 0.5 - st for n, st in rows[-60:]]))
+        for n, st in rows[:-1]:  # ostatni (otwarty) pomijamy
+            v = ank + st
+            if abs(v - n) < 3:
+                TT[pre][n] = v
+        if time.time() - _tt_zapis[0] > 60:
+            _tt_zapis[0] = time.time()
+            import json
+            gr = time.time() - KEEP_S - 900
+            for p in TT:
+                TT[p] = {k: v for k, v in TT[p].items() if k > gr}
+            tmp = _TTF.with_suffix(".tmp")
+            tmp.write_text(json.dumps({p: {str(k): v for k, v in TT[p].items()} for p in TT}))
+            tmp.replace(_TTF)
+    except Exception:
+        pass
 
 
 def _url(pre="m"):
@@ -38,13 +80,17 @@ def _url(pre="m"):
     return f"rtsp://{quote(k['user'], safe='')}:{quote(k['pw'], safe='')}@{host}:{RTSP_PORT}/Preview_01_{st}"
 
 
+_tt_wczytaj()
+
+
 def segmenty(pre="m"):
     out = []
     try:
         for p in DIR.glob(pre + "_*.ts"):
             m = RE.search(p.name)
             if m:
-                out.append((int(m.group(1)), p))
+                n = int(m.group(1))
+                out.append((TT.get(pre, {}).get(n, n), p))
     except OSError:
         pass
     out.sort()
@@ -103,6 +149,7 @@ async def petla(pre="m"):
             kodek = ["-map", "0:v:0", "-c:v", "copy", "-an"]
         cmd = ["ffmpeg", "-nostdin", "-loglevel", "warning", "-rtsp_transport", "tcp", "-i", url, *kodek,
                "-f", "segment", "-segment_time", str(SEG), "-segment_format", "mpegts",
+               "-segment_list", str(DIR / f"{pre}_list.csv"), "-segment_list_type", "csv", "-segment_list_flags", "+live",
                "-strftime", "1", str(DIR / (pre + "_%s.ts"))]
         logf = Path(tempfile.gettempdir()) / f"bufor_ffmpeg_{pre}.log"
         p = None
@@ -121,6 +168,7 @@ async def petla(pre="m"):
                     if pre == "m" and time.time() - tsp > 60:
                         tsp = time.time()
                         sprzataj()
+                    odswiez(pre)
                     s = segmenty(pre)
                     ost = max(s[-1][0], start) if s else start
                     try:

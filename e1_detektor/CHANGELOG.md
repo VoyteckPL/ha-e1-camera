@@ -351,3 +351,6 @@
 
 ## 0.18.25
 - Snap od razu w pelnej jakosci z glownego strumienia bufora (dopasowanie ruchem), Reolink nadal dopieszcza pozniej
+
+## 0.18.26
+- Bufor: dokladny czas kawalkow (lista ffmpeg + kotwica z zegara Pi) zamiast nazwy z pelnymi sekundami; mniejszy rozjazd low/high
