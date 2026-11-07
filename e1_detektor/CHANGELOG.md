@@ -299,3 +299,6 @@
 
 ## 0.18.8
 - Panel: zdjęcie w arkuszu zdarzenia sprawdza (HEAD bez cache) czy plik został podmieniony na pełną jakość i przeładowuje go z wersją w adresie; telefon nie zostaje już na starej, niskiej rozdzielczości.
+
+## 0.18.9
+- Poprawka: brakujący import `re` psuł rozpoznawanie przejazdów (0.18.3–0.18.8).
