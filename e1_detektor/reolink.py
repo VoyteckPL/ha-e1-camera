@@ -128,7 +128,7 @@ GOTOWE = set()  # zdarzenia, dla ktorych jest juz wideo z Reolinka
 START = {}  # b -> poczatek nagrania Reolinka (datetime, czas lokalny)
 
 
-async def reolink_wideo(b, kat, out: Path, media: Path, konwertuj, limit=300):
+async def reolink_wideo(b, kat, out: Path, media: Path, konwertuj, limit=300, force=False):
     """Czeka na nagranie Reolinka dla zdarzenia b, pobiera je i podmienia wideo out."""
     t = czas_zdarzenia(b)
     if not TOKEN or t is None:
@@ -136,7 +136,7 @@ async def reolink_wideo(b, kat, out: Path, media: Path, konwertuj, limit=300):
     tz = strefy._tz()
     start = time.time()
     await asyncio.sleep(5)
-    while time.time() - start < limit and b not in GOTOWE:
+    while time.time() - start < limit and (force or b not in GOTOWE):
         try:
             async with HA() as ha:
                 entry = await wpis_kamery(ha)

@@ -648,7 +648,7 @@ def dopieszcz_sync(b, klasy):
         pod.append(float((fg * ref).sum() / (np.sqrt((fg * fg).sum()) * nr + 1e-6)))
     i = int(np.argmax(pod))
     log.info("dopieszczanie %s: klatek %d, najlepsza %d (%+.1f s od oczekiwanej), podobienstwo %.2f", b, m, i, od + i / fps - off, pod[i])
-    if pod[i] < 0.2:
+    if pod[i] < 0.4:
         return False
     pf = SNAP / f"e1_best_{b}.jpg"
     tmp = SNAP / f"e1_best_{b}.tmp.jpg"
@@ -677,7 +677,7 @@ def dopieszcz_sync(b, klasy):
 
 
 async def rl_i_dopieszcz(b, rodzaj, klasy):
-    ok = await reolink.reolink_wideo(b, rodzaj, SNAP / f"e1_v_{b}.mp4", MEDIA, przygotuj_wideo_sync)
+    ok = await reolink.reolink_wideo(b, rodzaj, SNAP / f"e1_v_{b}.mp4", MEDIA, przygotuj_wideo_sync, force=True)  # nagranie z kamery zawsze, bo z niego bierzemy pelna jakosc
     if ok and b in PEND:
         try:
             await asyncio.get_running_loop().run_in_executor(None, dopieszcz_sync, b, klasy)
@@ -1359,6 +1359,18 @@ async def analyze(request):
                         _TEST["diag2"] = {"blad": str(_e)}
                 _TEST.pop("diag2", None)
                 asyncio.create_task(_dg2())
+                return web.json_response({"ok": True})
+            if dane.get("cmd") == "dopiesc":
+                _b = str(dane.get("b", ""))
+
+                async def _dp():
+                    try:
+                        _w = await asyncio.get_running_loop().run_in_executor(None, najlepsza_klatka_sync, _b, KLASY["pojazd"], "")
+                        if _w:
+                            await rl_i_dopieszcz(_b, "pojazd", KLASY["pojazd"])
+                    except Exception:
+                        log.exception("dopiesc")
+                asyncio.create_task(_dp())
                 return web.json_response({"ok": True})
             if dane.get("cmd") == "przelicz":
                 _b = str(dane.get("b", ""))

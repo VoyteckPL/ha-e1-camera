@@ -278,3 +278,6 @@
 
 ## 0.18.1
 - Osoby i zwierzęta też przez silnik bufora: najlepsza klatka z lekkiego strumienia (cała postać w kadrze), potem podmiana na pełną jakość z nagrania kamery. Gdy bufor nic nie znajdzie, stara ścieżka (zdjęcie z kamery).
+
+## 0.18.2
+- Pełna jakość snapa: nagranie z kamery pobierane zawsze (wcześniej pomijane, gdy klip z bufora skończył się pierwszy), próg podobieństwa 0,4, komenda `dopiesc`.
