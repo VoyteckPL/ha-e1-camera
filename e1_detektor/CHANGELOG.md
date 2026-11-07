@@ -333,3 +333,6 @@
 
 ## 0.18.19
 - Rozdzielanie klipu na osobne zdarzenia: po nagraniu z kamery dodatek śledzi ruch w całym klipie (osoby, pojazdy), rozpoznaje obiekty i dodaje każdy jako osobne zdarzenie z własnym zdjęciem w pełnej jakości, wycinkiem i krótkim klipem (poza głównym obiektem zdarzenia). Osoby blisko siebie (dorosły z dzieckiem) łączą się w jedno. Komenda `rozdziel`. Panel v53: oś czasu sortowana po czasie.
+
+## 0.18.20
+- Rozdzielanie klipu: klatki 1280x960 i detekcja pełnym modelem na powiększonym wycinku wokół toru (małe, dalekie obiekty); log torów.

@@ -905,7 +905,7 @@ def rozdziel_klip_sync(b, start=None, pomin_t=None):
     tmpd = tempfile.mkdtemp(prefix="e1r_")
     ts0 = time.time()
     try:
-        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(clip), "-vf", f"fps={FPS},scale=640:480", "-q:v", "3", f"{tmpd}/f_%03d.jpg"], capture_output=True, timeout=240)
+        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(clip), "-vf", f"fps={FPS},scale=1280:960", "-q:v", "3", f"{tmpd}/f_%03d.jpg"], capture_output=True, timeout=240)
         files = sorted(Path(tmpd).glob("f_*.jpg"))
         if len(files) < 12:
             return []
@@ -957,22 +957,33 @@ def rozdziel_klip_sync(b, start=None, pomin_t=None):
                 if q[0] not in [x[0] for x in kand_k]:
                     kand_k.append(q)
             best = None
+            dbg = []
             for q in kand_k:
                 im = Image.open(files[q[0]])
                 im.load()
                 iw, ih = im.size
                 bb = q[4]
-                ex, ey = (bb[2] - bb[0]) * 0.25, (bb[3] - bb[1]) * 0.25
-                bbx = (bb[0] - ex, bb[1] - ey, bb[2] + ex, bb[3] + ey)
+                bw, bh = bb[2] - bb[0], bb[3] - bb[1]
+                ex, ey = max(bw * 0.4, 0.04), max(bh * 0.4, 0.06)
+                cx0, cy0, cx1, cy1 = max(0.0, bb[0] - ex), max(0.0, bb[1] - ey), min(1.0, bb[2] + ex), min(1.0, bb[3] + ey)
+                crop = im.crop((int(cx0 * iw), int(cy0 * ih), int(cx1 * iw), int(cy1 * ih)))
+                cw_, ch_ = crop.size
+                if max(cw_, ch_) < 480:
+                    f_ = 480 / max(cw_, ch_)
+                    crop = crop.resize((max(1, int(cw_ * f_)), max(1, int(ch_ * f_))), Image.BILINEAR)
+                sw, sh = crop.size
                 for kl in ("pojazd", "osoba"):
-                    for bx in detect(im, KLASY[kl], 0.3, sess=scan):
-                        nb = _norm(bx, iw, ih)
-                        cx_, cy_ = (nb[0] + nb[2]) / 2, (nb[1] + nb[3]) / 2
-                        if not (_iou(nb, bbx) > 0.15 or (bbx[0] <= cx_ <= bbx[2] and bbx[1] <= cy_ <= bbx[3])):
+                    for bx in detect(crop, KLASY[kl], 0.3, sess=SESS):
+                        nb = [cx0 + bx[0] / sw * (cx1 - cx0), cy0 + bx[1] / sh * (cy1 - cy0), cx0 + bx[2] / sw * (cx1 - cx0), cy0 + bx[3] / sh * (cy1 - cy0)]
+                        dbg.append((kl, round(bx[4], 2)))
+                        # pokrycie: ramka z crop musi lezec glownie w obszarze ruchu
+                        ov = _iou(nb, bb)
+                        if ov < 0.1:
                             continue
-                        sc = bx[4] * (1.0 + 2.0 * _iou(nb, bbx)) * (1.0 if kl == "pojazd" else 0.9)
+                        sc = bx[4] * (1.0 + 2.0 * ov) * (1.0 if kl == "pojazd" else 0.9)
                         if best is None or sc > best[0]:
                             best = (sc, kl, nb, bx[4], q)
+            log.info("rozdziel %s: tor %.1f-%.1f s, %d kl., ruch %.2f, x %.2f->%.2f, detekcje %s -> %s", b, t0, t1, len(t), ruch, c0[0], c1[0], dbg[:6], best[1] if best else None)
             if best is None:
                 continue
             _, kl, nb, conf, q = best
