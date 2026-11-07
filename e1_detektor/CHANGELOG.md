@@ -287,3 +287,6 @@
 
 ## 0.18.4
 - Komenda diagnostyczna `wideo_diag` (klatki, odstępy czasu, klatki kluczowe w plikach wideo).
+
+## 0.18.5
+- wideo_diag: histogram odstępów między klatkami.

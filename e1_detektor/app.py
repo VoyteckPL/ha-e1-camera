@@ -1417,7 +1417,7 @@ async def analyze(request):
                         pts.sort()
                         d = [round(b2 - a, 3) for a, b2 in zip(pts, pts[1:])]
                         dd = sorted(d)
-                        out[nm] = {"info": info, "klatek": len(pts), "dt_med": dd[len(dd) // 2] if dd else None, "dt_max": dd[-5:] if dd else None,
+                        out[nm] = {"info": info, "klatek": len(pts), "dt_med": dd[len(dd) // 2] if dd else None, "dt_max": dd[-5:] if dd else None, "hist": {str(k): d.count(k) for k in sorted(set(d))},
                                    "dt_duze": [(round(pts[i], 2), x) for i, x in enumerate(d) if x > 0.2][:25], "kf": [round(x, 2) for x in kf[:40]]}
                     return out
                 _TEST["wd"] = await asyncio.get_running_loop().run_in_executor(None, _wd)
