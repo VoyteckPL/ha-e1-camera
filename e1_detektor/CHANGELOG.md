@@ -284,3 +284,6 @@
 
 ## 0.18.3
 - Przejazdy: widok „Auta” grupuje przejazdy po marce, modelu i kolorze (oraz tablicy, gdy Gemini ją odczyta), z licznikiem, ostatnim przejazdem i kierunkami; klik rozwija godziny.
+
+## 0.18.4
+- Komenda diagnostyczna `wideo_diag` (klatki, odstępy czasu, klatki kluczowe w plikach wideo).

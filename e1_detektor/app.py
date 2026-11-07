@@ -1394,6 +1394,34 @@ async def analyze(request):
                 _best, _rect, _n = wybierz_kadr(_bx, _iw, _ih)
                 _cb = await _ld.run_in_executor(None, zapisz_kadr, _img, _rect, SNAP / f"e1_crop_{_b}.jpg")
                 return web.json_response({"ok": True, "crop": f"e1_crop_{_b}.jpg", "pelny": _pf, "box": [round(v) for v in _best[:4]], "crop_box": list(_cb), "conf": round(_best[4], 3), "dopieszczone": _dop})
+            if dane.get("cmd") == "wideo_diag":
+                _b = str(dane.get("b", ""))
+                def _wd():
+                    out = {}
+                    for nm in (f"e1_v_{_b}.mp4", f"e1_rec_{_b}.mp4"):
+                        f = SNAP / nm
+                        if not f.exists():
+                            continue
+                        r = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=codec_name,width,height,avg_frame_rate,r_frame_rate,nb_frames,profile:format=duration,bit_rate", "-of", "json", str(f)], capture_output=True, text=True, timeout=60)
+                        info = json.loads(r.stdout or "{}")
+                        r2 = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "packet=pts_time,dts_time,flags", "-of", "csv=p=0", str(f)], capture_output=True, text=True, timeout=60)
+                        pts, kf = [], []
+                        for ln in r2.stdout.splitlines():
+                            q = ln.split(",")
+                            try:
+                                pts.append(float(q[0]))
+                                if "K" in q[-1]:
+                                    kf.append(float(q[0]))
+                            except Exception:
+                                pass
+                        pts.sort()
+                        d = [round(b2 - a, 3) for a, b2 in zip(pts, pts[1:])]
+                        dd = sorted(d)
+                        out[nm] = {"info": info, "klatek": len(pts), "dt_med": dd[len(dd) // 2] if dd else None, "dt_max": dd[-5:] if dd else None,
+                                   "dt_duze": [(round(pts[i], 2), x) for i, x in enumerate(d) if x > 0.2][:25], "kf": [round(x, 2) for x in kf[:40]]}
+                    return out
+                _TEST["wd"] = await asyncio.get_running_loop().run_in_executor(None, _wd)
+                return web.json_response({"ok": True})
             if dane.get("cmd") == "bufor_wynik":
                 return web.json_response({"ok": True, "wynik": _TEST})
             if dane.get("cmd") == "sd_test":
