@@ -220,3 +220,6 @@
 
 ## 0.17.4
 - Wybór klatki: wstępny wybór po ruchu względem tła, detekcja tylko na kilku klatkach (zamiast wszystkich); log czasu składania klipu.
+
+## 0.17.5
+- Polecenie `zloz_bench` (pomiar składania klipu na Pi).

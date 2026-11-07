@@ -1047,6 +1047,33 @@ async def analyze(request):
                     _TEST["b"] = _b
                 asyncio.create_task(_bt())
                 return web.json_response({"ok": True, "b": _b})
+            if dane.get("cmd") == "zloz_bench":
+                def _bench():
+                    _k = bufor.okno(time.time() - 60, time.time() - 20)
+                    _r = {"kawalki": len(_k), "mb": round(sum(p.stat().st_size for _, _, p in _k) / 1e6, 1)}
+                    _d = Path(tempfile.mkdtemp(prefix="e1z_"))
+                    try:
+                        _l = _d / "l.lst"
+                        bufor._lista(_k, _l)
+                        for _nm, _cmd in (
+                            ("concat_faststart", ["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", str(_l), "-c", "copy", "-movflags", "+faststart", str(_d / "a.mp4")]),
+                            ("concat_bez_faststart", ["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", str(_l), "-c", "copy", str(_d / "b.mp4")]),
+                            ("concat_maly_probe", ["ffmpeg", "-y", "-loglevel", "error", "-probesize", "32", "-analyzeduration", "0", "-f", "concat", "-safe", "0", "-i", str(_l), "-c", "copy", "-movflags", "+faststart", str(_d / "c.mp4")]),
+                        ):
+                            _t = time.time()
+                            _p = subprocess.run(_cmd, capture_output=True, text=True, timeout=120)
+                            _r[_nm] = [round(time.time() - _t, 2), _p.returncode, round(reolink.dlugosc(_d / _cmd[-1].split("/")[-1]), 1)]
+                        _t = time.time()
+                        with open(_d / "all.ts", "wb") as _o:
+                            for _, _, _p2 in _k:
+                                _o.write(_p2.read_bytes())
+                        _t2 = time.time()
+                        _p = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(_d / "all.ts"), "-c", "copy", "-movflags", "+faststart", str(_d / "d.mp4")], capture_output=True, text=True, timeout=120)
+                        _r["cat_potem_remux"] = [round(_t2 - _t, 2), round(time.time() - _t2, 2), _p.returncode, round(reolink.dlugosc(_d / "d.mp4"), 1)]
+                    finally:
+                        shutil.rmtree(_d, ignore_errors=True)
+                    return _r
+                return web.json_response({"ok": True, "bench": await asyncio.get_running_loop().run_in_executor(None, _bench)})
             if dane.get("cmd") == "bufor_wynik":
                 return web.json_response({"ok": True, "wynik": _TEST})
             if dane.get("cmd") == "sd_test":
