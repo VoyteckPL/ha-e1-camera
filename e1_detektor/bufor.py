@@ -240,11 +240,12 @@ def klatka_pelna(t, out: Path):
     return False
 
 
-def klatka_dopasuj(t, ref, box, out: Path, pol=2.0):
-    """Pelna klatka z glownego strumienia najbardziej podobna (w okolicy ramki `box`, ulamki 0-1) do klatki `ref` (PIL) z lekkiego.
+def klatka_dopasuj(t, fg_ref, box, out: Path, pol=3.0, fps=8):
+    """Pelna klatka z glownego strumienia, na ktorej ruchomy obiekt jest tam samo co na klatce `fg_ref` z lekkiego.
 
-    Strumienie maja rozne zera czasu, wiec samo t bywa przesuniete o ulamek-sekunde (szybkie auto = juz inny kadr).
-    Zwraca (True, koszt) lub (False, None).
+    Strumienie maja rozne zera czasu (i skok ~1 s miedzy kawalkami), wiec samo t bywa przesuniete - szybkie auto to juz inny kadr.
+    fg_ref: mapa ruchu 160x120 (0-1) klatki lekkiego strumienia (roznica od tla). box: ramka auta w ulamkach 0-1.
+    Zwraca (True, podobienstwo) lub (False, None).
     """
     od, do = t - pol, t + pol
     k = okno(od, do, "m")
@@ -254,29 +255,28 @@ def klatka_dopasuj(t, ref, box, out: Path, pol=2.0):
     dane = _scal(k)
     W, H = 160, 120
     r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", "pipe:0", "-ss", f"{ss:.2f}", "-t", f"{2 * pol:.2f}",
-                        "-vf", f"fps=10,scale={W}:{H},format=gray", "-f", "rawvideo", "pipe:1"], input=dane, capture_output=True, timeout=120)
+                        "-vf", f"fps={fps},scale={W}:{H},format=gray", "-f", "rawvideo", "pipe:1"], input=dane, capture_output=True, timeout=120)
     n = len(r.stdout) // (W * H)
-    if r.returncode != 0 or n == 0:
+    if r.returncode != 0 or n < 3:
         return False, None
     arr = np.frombuffer(r.stdout[:n * W * H], np.uint8).reshape(n, H, W).astype(np.float32)
-    refa = np.asarray(ref.convert("L").resize((W, H)), dtype=np.float32)
+    bg = np.median(arr, 0)
     x0, y0, x1, y1 = box
-    ex, ey = max(0.04, (x1 - x0) * 0.3), max(0.04, (y1 - y0) * 0.3)
+    ex, ey = max(0.08, (x1 - x0) * 0.8), max(0.08, (y1 - y0) * 0.8)
     ax0, ax1 = int(max(0.0, x0 - ex) * W), int(min(1.0, x1 + ex) * W) + 1
     ay0, ay1 = int(max(0.0, y0 - ey) * H), int(min(1.0, y1 + ey) * H) + 1
-
-    def nz(a):
-        a = a[ay0:ay1, ax0:ax1]
-        return (a - a.mean()) / (a.std() + 1e-3)
-
-    rr = nz(refa)
-    kosz = [float(np.abs(nz(a) - rr).mean()) for a in arr]
-    i = int(np.argmin(kosz))
-    r2 = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", "pipe:0", "-ss", f"{ss + i / 10.0:.2f}", "-frames:v", "1",
+    ref = fg_ref[ay0:ay1, ax0:ax1]
+    nr = float(np.sqrt((ref * ref).sum())) + 1e-6
+    pod = []
+    for a in arr:
+        fg = np.clip(np.abs(a - bg) / 64.0, 0, 1)[ay0:ay1, ax0:ax1]
+        pod.append(float((fg * ref).sum() / (np.sqrt((fg * fg).sum()) * nr + 1e-6)))
+    i = int(np.argmax(pod))
+    r2 = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", "pipe:0", "-ss", f"{ss + i / fps:.2f}", "-frames:v", "1",
                          "-q:v", "3", str(out)], input=dane, capture_output=True, timeout=120)
     ok = r2.returncode == 0 and out.exists() and out.stat().st_size > 1000
-    log.info("bufor dopasowanie klatki: %d klatek, najlepsza %d (przesuniecie %+.1f s wzgledem czasu lekkiego), koszt %.2f", n, i, i / 10.0 - pol, kosz[i])
-    return ok, kosz[i]
+    log.info("bufor dopasowanie klatki: %d klatek, najlepsza %d (%+.1f s od czasu lekkiego), podobienstwo %.2f", n, i, i / fps - pol, pod[i])
+    return ok, pod[i]
 
 
 async def czekaj(do, limit=10.0):

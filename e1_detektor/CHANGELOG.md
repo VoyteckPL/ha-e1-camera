@@ -251,3 +251,6 @@
 
 ## 0.17.14
 - Pełna klatka dopasowywana obrazem do wybranej klatki lekkiego strumienia (strumienie mają różne zera czasu - szybkie auto trafiało w inny kadr).
+
+## 0.17.15
+- Dopasowanie pełnej klatki po mapie ruchu (różnica od tła) zamiast surowych pikseli, okno ±3 s.
