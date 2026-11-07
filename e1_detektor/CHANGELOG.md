@@ -360,3 +360,6 @@
 
 ## 0.18.28
 - Dopasowanie klatki: okno +-6 s i automatyczna korekta stalego przesuniecia glowny/lekki (mediana)
+
+## 0.18.29
+- cmd snap_b64 (diagnostyka: miniatura snapa)

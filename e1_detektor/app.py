@@ -1863,6 +1863,14 @@ async def analyze(request):
                         async with _s.post(f"{_bs}/api.cgi?cmd=SetEnc&token={_tok}", json=[{"cmd": "SetEnc", "param": {"Enc": _enc}}], ssl=False, timeout=_ah.ClientTimeout(total=15)) as _r:
                             _TEST["enc_set"] = await _r.json(content_type=None)
                 return web.json_response({"ok": True, "enc": _TEST.get("enc_przed"), "set": _TEST.get("enc_set")})
+            if dane.get("cmd") == "snap_b64":
+                import base64, io
+                _im = Image.open(SNAP / str(dane.get("plik")))
+                _im.load()
+                _im.thumbnail((int(dane.get("w", 640)), 480))
+                _bf = io.BytesIO()
+                _im.convert("RGB").save(_bf, "JPEG", quality=60)
+                return web.json_response({"ok": True, "b64": base64.b64encode(_bf.getvalue()).decode()})
             if dane.get("cmd") == "bez_etykiet":
                 def _be():
                     n = 0
