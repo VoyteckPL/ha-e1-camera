@@ -266,6 +266,22 @@ async def czekaj_na_klip(b, limit):
     return clip if clip.exists() and ffprobe_ok(clip) else None
 
 
+def rowne_klatki_bsf(clip: Path):
+    """Kamera daje 25 kl./s, ale w pliku znaczniki czasu leza na siatce 30 kl./s (odstepy 33/67 ms) - widac to jako mikro-przyciecia.
+    Zwraca filtr przepisujacy czas na rowne 40 ms (bez przekodowania); tylko dla wideo bez klatek B i ~25 kl./s."""
+    try:
+        r = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=has_b_frames,nb_read_packets:format=duration",
+                            "-count_packets", "-of", "json", str(clip)], capture_output=True, text=True, timeout=60)
+        j = json.loads(r.stdout)
+        st = j["streams"][0]
+        n, dur = int(st["nb_read_packets"]), float(j["format"]["duration"])
+        if int(st.get("has_b_frames", 0)) == 0 and dur > 1 and 24.0 <= n / dur <= 26.0:
+            return "setts=ts=N/(25*TB)"
+    except Exception:
+        pass
+    return None
+
+
 def przygotuj_wideo_sync(clip: Path, out: Path):
     streams = ffprobe_ok(clip) or []
     vid = next((s for s in streams if s.get("codec_type") == "video"), {})
@@ -273,6 +289,9 @@ def przygotuj_wideo_sync(clip: Path, out: Path):
     if vid.get("codec_name") == "h264":
         cmd = ["ffmpeg", "-y", "-loglevel", "error", "-i", str(clip), "-map", "0:v:0", "-map", "0:a:0?",
                "-c:v", "copy", "-c:a", "aac", "-b:a", "64k", "-movflags", "+faststart", str(tmp)]
+        _bsf = rowne_klatki_bsf(clip)
+        if _bsf:
+            cmd[cmd.index("-c:v") + 2:cmd.index("-c:v") + 2] = ["-bsf:v", _bsf]
     else:
         cmd = ["ffmpeg", "-y", "-loglevel", "error", "-i", str(clip), "-map", "0:v:0", "-map", "0:a:0?",
                "-c:v", "libx264", "-preset", "veryfast", "-crf", "27", "-vf", "scale=-2:720,format=yuv420p",
@@ -1436,6 +1455,22 @@ async def analyze(request):
                         async with _s.post(f"{_bs}/api.cgi?cmd=SetEnc&token={_tok}", json=[{"cmd": "SetEnc", "param": {"Enc": _enc}}], ssl=False, timeout=_ah.ClientTimeout(total=15)) as _r:
                             _TEST["enc_set"] = await _r.json(content_type=None)
                 return web.json_response({"ok": True, "enc": _TEST.get("enc_przed"), "set": _TEST.get("enc_set")})
+            if dane.get("cmd") == "napraw_wideo":
+                _b = str(dane.get("b", ""))
+                def _nw():
+                    f = SNAP / f"e1_v_{_b}.mp4"
+                    bsf = rowne_klatki_bsf(f)
+                    if not bsf:
+                        return "pomijam (nie 25 kl./s albo klatki B)"
+                    tmp = f.with_suffix(".fix.mp4")
+                    r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(f), "-map", "0", "-c", "copy", "-bsf:v", bsf, "-movflags", "+faststart", str(tmp)], capture_output=True, text=True, timeout=120)
+                    if r.returncode != 0:
+                        tmp.unlink(missing_ok=True)
+                        return "blad: " + r.stderr[-200:]
+                    tmp.replace(f)
+                    return "ok"
+                _TEST["nw"] = await asyncio.get_running_loop().run_in_executor(None, _nw)
+                return web.json_response({"ok": True, "wynik": _TEST["nw"]})
             if dane.get("cmd") == "bufor_wynik":
                 return web.json_response({"ok": True, "wynik": _TEST})
             if dane.get("cmd") == "sd_test":

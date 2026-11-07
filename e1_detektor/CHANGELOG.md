@@ -293,3 +293,6 @@
 
 ## 0.18.6
 - Komendy `kam_enc` / `kam_enc_set` (odczyt i zmiana ustawień strumienia kamery, np. klatkaż głównego strumienia).
+
+## 0.18.7
+- Płynność wideo: znaczniki czasu klipów z kamery (25 kl./s na siatce 30 kl./s, odstępy 33/67 ms) są prostowane do równych 40 ms bez przekodowania. Komenda `napraw_wideo`.
