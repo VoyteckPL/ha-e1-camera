@@ -77,6 +77,9 @@ def _url(pre="m"):
         return None
     host = urlparse(k["base"]).hostname
     st = "main" if pre == "m" else "sub"
+    if _stan.get("flv", {}).get(pre, True):  # http-flv: stabilniejszy na Reolinkach niz RTSP (zalecenie Frigate); przy bledach wracamy na RTSP
+        return (f"http://{host}/flv?port=1935&app=bcs&stream=channel0_{'main' if pre == 'm' else 'ext'}.bcs"
+                f"&user={quote(k['user'], safe='')}&password={quote(k['pw'], safe='')}")
     return f"rtsp://{quote(k['user'], safe='')}:{quote(k['pw'], safe='')}@{host}:{RTSP_PORT}/Preview_01_{st}"
 
 
@@ -147,7 +150,7 @@ async def petla(pre="m"):
             kodek = ["-map", "0:v:0", "-map", "0:a:0?", "-c:v", "copy", "-c:a", "aac", "-b:a", "64k"]
         else:
             kodek = ["-map", "0:v:0", "-c:v", "copy", "-an"]
-        cmd = ["ffmpeg", "-nostdin", "-loglevel", "warning", "-rtsp_transport", "tcp", "-i", url, *kodek,
+        cmd = ["ffmpeg", "-nostdin", "-loglevel", "warning", *(["-rtsp_transport", "tcp"] if url.startswith("rtsp") else []), "-i", url, *kodek,
                "-f", "segment", "-segment_time", str(SEG), "-segment_format", "mpegts",
                "-segment_list", str(DIR / f"{pre}_list.csv"), "-segment_list_type", "csv", "-segment_list_flags", "+live",
                "-strftime", "1", str(DIR / (pre + "_%s.ts"))]
@@ -194,6 +197,9 @@ async def petla(pre="m"):
             tail = logf.read_text(errors="ignore")[-300:].replace(url, "***")
         except Exception:
             tail = ""
+        if time.time() - start < 60 and url.startswith("http"):  # flv nie dziala - nastepna proba po RTSP
+            _stan.setdefault("flv", {})[pre] = False
+            log.warning("bufor[%s]: http-flv nie dziala, przechodze na RTSP", pre)
         _stan["restarty"] += 1
         _stan["blad"] = tail.strip()[-100:]
         log.warning("bufor[%s]: ffmpeg zakonczony (%s), ponawiam za 5 s: %s", pre, p.returncode if p else "?", tail.strip()[-200:])

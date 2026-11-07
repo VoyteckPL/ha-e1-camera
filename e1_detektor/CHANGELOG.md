@@ -354,3 +354,6 @@
 
 ## 0.18.26
 - Bufor: dokladny czas kawalkow (lista ffmpeg + kotwica z zegara Pi) zamiast nazwy z pelnymi sekundami; mniejszy rozjazd low/high
+
+## 0.18.27
+- Bufor czyta http-flv (zalecenie Frigate dla Reolink), przy bledzie wraca na RTSP
