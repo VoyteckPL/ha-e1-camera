@@ -1422,6 +1422,20 @@ async def analyze(request):
                     return out
                 _TEST["wd"] = await asyncio.get_running_loop().run_in_executor(None, _wd)
                 return web.json_response({"ok": True})
+            if dane.get("cmd") in ("kam_enc", "kam_enc_set"):
+                import aiohttp as _ah
+                async with _ah.ClientSession() as _s:
+                    _tok = await reolink._kam_token(_s)
+                    _bs = reolink._kam["base"]
+                    async with _s.post(f"{_bs}/api.cgi?cmd=GetEnc&token={_tok}", json=[{"cmd": "GetEnc", "action": 1, "param": {"channel": 0}}], ssl=False, timeout=_ah.ClientTimeout(total=15)) as _r:
+                        _j = await _r.json(content_type=None)
+                    _enc = _j[0]["value"]["Enc"]
+                    _TEST["enc_przed"] = _enc
+                    if dane.get("cmd") == "kam_enc_set":
+                        _enc["mainStream"]["frameRate"] = int(dane.get("fps", 25))
+                        async with _s.post(f"{_bs}/api.cgi?cmd=SetEnc&token={_tok}", json=[{"cmd": "SetEnc", "param": {"Enc": _enc}}], ssl=False, timeout=_ah.ClientTimeout(total=15)) as _r:
+                            _TEST["enc_set"] = await _r.json(content_type=None)
+                return web.json_response({"ok": True, "enc": _TEST.get("enc_przed"), "set": _TEST.get("enc_set")})
             if dane.get("cmd") == "bufor_wynik":
                 return web.json_response({"ok": True, "wynik": _TEST})
             if dane.get("cmd") == "sd_test":

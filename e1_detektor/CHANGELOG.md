@@ -290,3 +290,6 @@
 
 ## 0.18.5
 - wideo_diag: histogram odstępów między klatkami.
+
+## 0.18.6
+- Komendy `kam_enc` / `kam_enc_set` (odczyt i zmiana ustawień strumienia kamery, np. klatkaż głównego strumienia).
