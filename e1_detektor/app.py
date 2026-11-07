@@ -1480,6 +1480,7 @@ def segmentuj(img, n):
 
 def rysuj(img, items):
     """Sama nazwa auta w srodku jego sylwetki (bez obrysu)."""
+    return img.convert("RGB")  # etykiety na zdjeciach wylaczone (0.18.23)
     from PIL import ImageDraw, ImageFont
     base = img.convert("RGBA")
     iw, ih = base.size
@@ -1838,6 +1839,19 @@ async def analyze(request):
                         async with _s.post(f"{_bs}/api.cgi?cmd=SetEnc&token={_tok}", json=[{"cmd": "SetEnc", "param": {"Enc": _enc}}], ssl=False, timeout=_ah.ClientTimeout(total=15)) as _r:
                             _TEST["enc_set"] = await _r.json(content_type=None)
                 return web.json_response({"ok": True, "enc": _TEST.get("enc_przed"), "set": _TEST.get("enc_set")})
+            if dane.get("cmd") == "bez_etykiet":
+                def _be():
+                    n = 0
+                    for _k, _e in _poj_load().items():
+                        try:
+                            _im = Image.open(SNAP / _e["src"]); _im.load()
+                            _im.convert("RGB").save(SNAP / f"e1_best_{_k}_a{_e['v']}.jpg", "JPEG", quality=90)
+                            n += 1
+                        except Exception:
+                            pass
+                    return n
+                _n = await asyncio.get_running_loop().run_in_executor(None, _be)
+                return web.json_response({"ok": True, "n": _n})
             if dane.get("cmd") == "napraw_wideo":
                 _b = str(dane.get("b", ""))
                 def _nw():

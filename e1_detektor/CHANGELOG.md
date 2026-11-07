@@ -342,3 +342,6 @@
 
 ## 0.18.22
 - Panel v54: pasek "Zaparkowane" kompaktowo, tylko marki, bez miniaturek
+
+## 0.18.23
+- Brak nakladek z nazwami aut na zdjeciach (rysuj wylaczone); cmd bez_etykiet czyści istniejące
