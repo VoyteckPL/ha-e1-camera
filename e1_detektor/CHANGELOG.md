@@ -317,3 +317,7 @@
 
 ## 0.18.14
 - Komenda `obraz_info` (rozmiar i czas zapisu zdjęcia/wycinka zdarzenia).
+
+## 0.18.15
+- Wycinek małego (dalekiego) obiektu ma min. ok. 20% szerokości kadru, zamiast skrajnie rozciągniętej plamy.
+- Panel v52: gdy wycinek jest bardzo mały, zdarzenie otwiera się od razu na pełnym kadrze (do przybliżania); odświeżanie zdjęcia nie polega już tylko na nagłówkach HTTP.

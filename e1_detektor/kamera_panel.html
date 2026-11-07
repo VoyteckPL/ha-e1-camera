@@ -126,7 +126,7 @@ body[data-tab=zd] #nav [data-tab=zd],body[data-tab=live] #nav [data-tab=live],bo
 <div class="set"><h3>Oznaczanie aut</h3><p class="opis" style="margin:0">Ręczne oznaczanie aut na podjeździe (Kia, Seat, Obce…) w zdarzeniach z samochodem. Domyślnie wyłączone, bo auta na drodze rozpoznaje Gemini w zakładce Przejazdy. Ustawienie dotyczy tego urządzenia.</p><button class="btn big" id="ozb"></button></div>
 <div class="set"><h3>Strojenie</h3><p class="opis" style="margin:0" id="tus">Zbieranie danych do uczenia czułości.</p><button class="btn big" id="tub">Pokaż dane</button></div>
 <div class="set"><h3>Historia</h3><p class="opis" style="margin:0">Usuwa wszystkie zdarzenia z panelu (pliki zostaną posprzątane automatycznie).</p><button class="btn big" id="clr">Wyczyść historię</button></div>
-<p class="opis" style="text-align:center">Panel kamery v51</p>
+<p class="opis" style="text-align:center">Panel kamery v52</p>
 </section>
 <nav id="nav"><button data-tab="zd"><i>🗂</i><span>Zdarzenia</span></button><button data-tab="live"><i>🎥</i><span>Na żywo</span></button><button data-tab="park"><i>🅿️</i><span>Parking</span></button><button data-tab="prz"><i>🚗</i><span>Przejazdy</span></button><button data-tab="ust"><i>⚙️</i><span>Ustawienia</span></button></nav>
 
@@ -248,7 +248,8 @@ function prRender(){const o=(EV&&EV.osoby)||[];const pr=$('pr');pr.className=o.l
 const fmt=t=>{t=Math.max(0,t|0);return (t/60|0)+':'+String(t%60).padStart(2,'0')};
 function msg(t){const m=$('vm');m.style.display=t?'flex':'none';m.textContent=t||''}
 function showPhoto(m){if(m)PM=m;zv.pause();zv.style.display='none';zi.style.display='block';$('vc').className='';$('bph').className='btn'+(PM=='crop'?' pri':'');prRender();$('bfu').className='btn'+(PM=='full'?' pri':'');$('bvd').className='btn';msg('');clearTimeout(poll);rz();if(EV){const u=phUrl();if(zi.dataset.u!=u){zi.dataset.u=u;delete zi.dataset.s;zi.onerror=()=>{zi.onerror=null;zi.src=SN+EV.plik};zi.src=u}phRev()}}
-function phRev(){if(!EV)return;const u=phUrl(),b=EV.b;fetch(u,{method:'HEAD',cache:'no-store'}).then(r=>r.ok?(r.headers.get('last-modified')||'')+'|'+(r.headers.get('content-length')||''):null).catch(()=>null).then(sig=>{if(!sig||!EV||EV.b!=b||phUrl()!=u||zi.dataset.u!=u)return;if(zi.dataset.s===sig)return;const first=zi.dataset.s===undefined;zi.dataset.s=sig;zi.src=u+'?v='+encodeURIComponent(sig)})}
+zi.addEventListener('load',()=>{if(EV&&!EV.af&&PM=='crop'&&EV.plik&&EV.crop!=EV.plik&&zi.naturalWidth&&zi.naturalWidth<260&&zi.naturalHeight<600){EV.af=true;showPhoto('full')}});
+function phRev(){if(!EV)return;const u=phUrl(),b=EV.b;fetch(u,{method:'HEAD',cache:'no-store'}).then(r=>r.ok?(r.headers.get('last-modified')||'')+'|'+(r.headers.get('content-length')||'')+'|'+(r.headers.get('etag')||''):null).catch(()=>null).then(sig=>{if(!sig||!EV||EV.b!=b||phUrl()!=u||zi.dataset.u!=u)return;if(sig=='||')sig='n'+(zi.dataset.n=zi.dataset.n||Date.now());if(zi.dataset.s===sig)return;const first=zi.dataset.s===undefined;zi.dataset.s=sig;zi.src=u+'?v='+encodeURIComponent(sig)})}
 function showVideo(){if(!EV)return;rz();document.querySelectorAll('#pr img.on').forEach(i=>i.classList.remove('on'));zi.style.display='none';zv.style.display='block';$('bph').className='btn';$('bfu').className='btn';$('bvd').className='btn pri';tryVideo()}
 let VW=null,VSIG='',VT0=0,VB='';
 function vHead(b){return fetch(SN+'e1_v_'+b+'.mp4',{method:'HEAD',cache:'no-store'}).then(r=>r.ok?((r.headers.get('content-length')||'')+'|'+(r.headers.get('last-modified')||'x')):null).catch(()=>null)}

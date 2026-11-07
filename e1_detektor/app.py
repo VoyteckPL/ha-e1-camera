@@ -235,6 +235,16 @@ def zapisz_kadr(img, rect, out_path):
         int(min(iw, x2 + mx)),
         int(min(ih, y2 + my)),
     )
+    # maly obiekt (daleko): wycinek co najmniej ~20% szerokosci kadru, zeby nie byl skrajnym, rozmytym powiekszeniem
+    mn = int(iw * 0.2)
+    bx0, by0, bx1, by1 = box
+    if bx1 - bx0 < mn:
+        c = (bx0 + bx1) / 2
+        bx0, bx1 = int(max(0, min(c - mn / 2, iw - mn))), int(min(iw, max(c + mn / 2, mn)))
+    if by1 - by0 < mn:
+        c = (by0 + by1) / 2
+        by0, by1 = int(max(0, min(c - mn / 2, ih - mn))), int(min(ih, max(c + mn / 2, mn)))
+    box = (bx0, by0, bx1, by1)
     crop = img.convert("RGB").crop(box)
     crop.save(out_path, "JPEG", quality=90)
     return box
