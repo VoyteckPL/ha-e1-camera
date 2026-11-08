@@ -372,3 +372,6 @@
 
 ## 0.19.0
 - Jedna aplikacja: modul Strojenie wbudowany w detektor (osobny add-on niepotrzebny), panel serwowany przez ingress jako pozycja "Kamera" w pasku bocznym (bez pliku w /local i bez karty iframe)
+
+## 0.19.1
+- Nazwa aplikacji: Kamera
