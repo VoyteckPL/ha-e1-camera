@@ -596,6 +596,7 @@ def najlepsza_klatka_sync(b, klasy, granica, t0=None, extra=False):
         if not wybor:  # brak wyraznego ruchu: kilka rownomiernie rozlozonych klatek
             wybor = sorted({int(i * (len(files) - 1) / 4) for i in range(5)})
         kand = []
+        kand_st = []
         for k in wybor:
             img = Image.open(files[k])
             img.load()
@@ -605,9 +606,20 @@ def najlepsza_klatka_sync(b, klasy, granica, t0=None, extra=False):
                 boxes = ruchome(boxes, iw, ih, b)
             for bx in boxes:
                 n = _norm(bx, iw, ih)
+                if pojazd:  # stojace auto nie jest przejazdem: w jego ramce nie ma ruchu wzgledem tla
+                    ra = male[k][int(n[1] * 60):int(n[3] * 60) + 1, int(n[0] * 80):int(n[2] * 80) + 1]
+                    ba = bg[int(n[1] * 60):int(n[3] * 60) + 1, int(n[0] * 80):int(n[2] * 80) + 1]
+                    if ra.size and float((np.abs(ra - ba) > 28).mean()) < 0.06:
+                        stoj = True
+                    else:
+                        stoj = False
+                else:
+                    stoj = False
                 mx, my = (n[0] + n[2]) / 2, (n[1] + n[3]) / 2
                 dist = math.hypot(mx - cx, (my - cy) * 0.7)
-                kand.append((box_score(bx, iw, ih) * max(0.15, 1.0 - dist * wag), od + k / FPS, n, bx[4], k))
+                (kand_st if stoj else kand).append((box_score(bx, iw, ih) * max(0.15, 1.0 - dist * wag), od + k / FPS, n, bx[4], k))
+        if not kand:
+            kand = kand_st  # same stojace auta: lepiej cokolwiek niz nic
         if pojazd and _dr:  # glowne auto to to na drodze; stojace na podjezdzie (np. Seat) nie moze przejac zdarzenia
             kd = [c for c in kand if strefy.w_wielokacie((c[2][0] + c[2][2]) / 2 * 1000, c[2][3] * 1000, _dr)]
             if kd:
@@ -883,12 +895,25 @@ def hires_najlepsza_sync(b, t_start=None, pelny=False):
         if r.returncode != 0 or not files:
             return None
         cand = []
+        dets = []
         for i, f in enumerate(files):
             im = Image.open(f)
             im.load()
             iw, ih = im.size
-            wszystkie = detect(im, KLASY["pojazd"], MIN_CONF * 0.9, sess=SESS_T or SESS)
-            ruch = ruchome(wszystkie, iw, ih, b)
+            dets.append((detect(im, KLASY["pojazd"], MIN_CONF * 0.9, sess=SESS_T or SESS), iw, ih))
+        # stojace auta: ta sama ramka (IoU > 0.8) w wiekszosci klatek klipu
+        stat = []
+        for w0, iw, ih in dets:
+            for bx in w0:
+                n0 = _norm(bx, iw, ih)
+                if any(_iou(n0, st) > 0.8 for st in stat):
+                    continue
+                licz = sum(1 for w1, iw1, ih1 in dets if any(_iou(n0, _norm(b1, iw1, ih1)) > 0.8 for b1 in w1))
+                if licz >= max(3, 0.6 * len(dets)):
+                    stat.append(n0)
+        log.info("hires %s: klatek %d, stojacych aut %d", b, len(dets), len(stat))
+        for i, (wszystkie, iw, ih) in enumerate(dets):
+            ruch = [bx for bx in ruchome(wszystkie, iw, ih, b) if not any(_iou(_norm(bx, iw, ih), st) > 0.8 for st in stat)]
             for bx in ruch:
                 nn = _norm(bx, iw, ih)
                 mx, my = (nn[0] + nn[2]) / 2, (nn[1] + nn[3]) / 2

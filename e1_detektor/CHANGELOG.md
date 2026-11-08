@@ -381,3 +381,6 @@
 
 ## 0.19.3
 - cmd napraw: zdarzenie od nowa z klipu (auto na drodze), usuwa bledne wpisy
+
+## 0.19.4
+- Stojace auta (ta sama ramka w wiekszosci klatek / brak ruchu w ramce) nie sa wybierane jako przejazd
