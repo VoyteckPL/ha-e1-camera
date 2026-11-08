@@ -25,6 +25,7 @@ from PIL import Image
 import auta
 import bufor
 import reolink
+import tuner
 import strefy
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -2238,14 +2239,16 @@ async def sprzatanie():
 
 
 def instaluj_panel():
+    """Panel serwuje sam add-on (ingress, pozycja w pasku bocznym); stary plik z /local usuwamy, zeby nie wisial w cache."""
     try:
-        src = Path("/app/kamera_panel.html")
-        dst = HA / "www" / "kamera_panel.html"
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(src, dst)
-        log.info("panel zainstalowany: %s", dst)
+        (HA / "www" / "kamera_panel.html").unlink(missing_ok=True)
     except Exception:
         log.exception("instaluj_panel")
+
+
+async def panel(request):
+    return web.Response(body=Path("/app/kamera_panel.html").read_bytes(), content_type="text/html", charset="utf-8",
+                        headers={"Cache-Control": "no-store"})
 
 
 def usun_stare():
@@ -2420,11 +2423,12 @@ async def on_start(app):
     app["pz_wznow"] = asyncio.create_task(pz_wznow())
     app["bufor"] = asyncio.create_task(bufor.petla("m"))
     app["bufor_s"] = asyncio.create_task(bufor.petla("s"))
+    await tuner.start(app)
 
 
 def main():
     app = web.Application(client_max_size=1024 * 1024)
-    app.add_routes([web.post("/analyze", analyze), web.get("/health", health)])
+    app.add_routes([web.post("/analyze", analyze), web.get("/health", health), web.get("/", panel), *tuner.ROUTES])
     app.on_startup.append(on_start)
     web.run_app(app, host="0.0.0.0", port=8099)
 

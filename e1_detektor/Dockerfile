@@ -16,7 +16,7 @@ RUN pip install onnx \
     && (python -c "import urllib.request as u, onnx; p='/tmp/m.onnx'; u.urlretrieve('https://github.com/onnx/models/raw/main/validated/vision/classification/mobilenet/model/mobilenetv2-12.onnx', p); m=onnx.load(p); n=[x for x in m.graph.node if x.op_type=='Gemm'][-1]; m.graph.output.append(onnx.helper.make_tensor_value_info(n.input[0], onnx.TensorProto.FLOAT, None)); onnx.save(m, '/app/emb.onnx')" || echo 'BRAK MODELU ODCISKOW') \
     ; pip uninstall -y onnx; rm -f /tmp/m.onnx
 
-COPY app.py strefy.py reolink.py auta.py bufor.py /app/
+COPY app.py strefy.py reolink.py auta.py bufor.py tuner.py /app/
 COPY kamera_panel.html /app/kamera_panel.html
 
 CMD ["python", "/app/app.py"]

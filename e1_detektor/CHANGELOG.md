@@ -369,3 +369,6 @@
 
 ## 0.18.31
 - Punkt celu snapa (przesuwany w edytorze stref), wybor najlepszej klatki na hi-res z klipu kamery (cale auto, duze, blisko celu, niezaslonione); panel v55
+
+## 0.19.0
+- Jedna aplikacja: modul Strojenie wbudowany w detektor (osobny add-on niepotrzebny), panel serwowany przez ingress jako pozycja "Kamera" w pasku bocznym (bez pliku w /local i bez karty iframe)
