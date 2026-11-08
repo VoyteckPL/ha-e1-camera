@@ -421,7 +421,9 @@ _TEST = {}
 
 
 def _cel_drogi(cfg):
-    """Srodek strefy 'Droga' (0..1); bez takiej strefy - srodek kadru."""
+    """Punkt celu snapa (ustawiany w panelu); bez niego srodek strefy 'Droga' (0..1); bez takiej strefy - srodek kadru."""
+    if cfg.get("cel"):
+        return (cfg["cel"][0] / 1000.0, cfg["cel"][1] / 1000.0)
     for z in cfg.get("strefy", []):
         if "droga" in z.get("nazwa", "").lower() and z.get("pts"):
             xs = [p[0] for p in z["pts"]]
@@ -847,6 +849,74 @@ def dopieszcz_sync(b, klasy, k=None):
     return True
 
 
+def hires_najlepsza_sync(b):
+    """Po nagraniu z kamery: wybiera z klipu najlepsza klatke przejazdu (auto cale w kadrze, duze, blisko punktu celu, nie zaslonione)
+    i podmienia snap oraz wycinek na pelna jakosc. Zwraca przesuniecie w s wzgledem poprzedniego wyboru albo None."""
+    g = GLOWNY.get(b)
+    fs = reolink.START.get(b)
+    clip = SNAP / f"e1_v_{b}.mp4"
+    if not g or fs is None or not clip.exists():
+        return None
+    tc, _n = g
+    t_start = time.mktime(fs.timetuple())
+    off = tc - t_start
+    cfg = strefy.wczytaj("")
+    droga = next((z["pts"] for z in cfg.get("strefy", []) if "droga" in z.get("nazwa", "").lower() and z.get("pts")), None)
+    cx, cy = _cel_drogi(cfg)
+    od, dur, fps = max(0.0, off - 3.0), 6.5, 3
+    tmpd = tempfile.mkdtemp(prefix="e1h_")
+    try:
+        r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{od:.2f}", "-t", f"{dur:.2f}", "-i", str(clip), "-vf", f"fps={fps},scale=1280:960", "-q:v", "3", f"{tmpd}/f_%03d.jpg"], capture_output=True, timeout=180)
+        files = sorted(Path(tmpd).glob("f_*.jpg"))
+        if r.returncode != 0 or not files:
+            return None
+        cand = []
+        for i, f in enumerate(files):
+            im = Image.open(f)
+            im.load()
+            iw, ih = im.size
+            wszystkie = detect(im, KLASY["pojazd"], MIN_CONF * 0.9, sess=SESS_T or SESS)
+            ruch = ruchome(wszystkie, iw, ih, b)
+            for bx in ruch:
+                nn = _norm(bx, iw, ih)
+                mx, my = (nn[0] + nn[2]) / 2, (nn[1] + nn[3]) / 2
+                if droga and not strefy.w_wielokacie(mx * 1000, nn[3] * 1000, droga):
+                    continue
+                pole = max(1e-6, (nn[2] - nn[0]) * (nn[3] - nn[1]))
+                ucieta = nn[0] < 0.015 or nn[2] > 0.985 or nn[1] < 0.01 or nn[3] > 0.99
+                zasl = 0.0
+                for ob in wszystkie:
+                    no = _norm(ob, iw, ih)
+                    if _iou(no, nn) > 0.8:
+                        continue
+                    ix = max(0.0, min(nn[2], no[2]) - max(nn[0], no[0]))
+                    iy = max(0.0, min(nn[3], no[3]) - max(nn[1], no[1]))
+                    zasl = max(zasl, ix * iy / pole)
+                d = math.hypot(mx - cx, (my - cy) * 0.7)
+                sc = pole * max(0.15, 1.0 - d * 1.4) * (0.15 if ucieta else 1.0) * max(0.1, 1.0 - zasl * 2.0) * (0.5 + float(bx[4]))
+                cand.append((sc, od + i / fps, nn, bx[4], ucieta, zasl))
+        if not cand:
+            log.info("hires %s: brak kandydatow w strefie drogi", b)
+            return None
+        sc, tb, nn, conf, uc, zs = max(cand, key=lambda x: x[0])
+        tmp = SNAP / f"e1_best_{b}.hi2.jpg"
+        r2 = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{tb:.2f}", "-i", str(clip), "-frames:v", "1", "-q:v", "2", str(tmp)], capture_output=True, timeout=120)
+        if r2.returncode != 0 or not tmp.exists() or tmp.stat().st_size < 1000:
+            return None
+        img = Image.open(tmp)
+        img.load()
+        img = img.convert("RGB")
+        iw, ih = img.size
+        _best, rect, _nn = wybierz_kadr([(nn[0] * iw, nn[1] * ih, nn[2] * iw, nn[3] * ih, conf)], iw, ih)
+        zapisz_kadr(img, rect, SNAP / f"e1_crop_{b}.jpg")
+        tmp.replace(SNAP / f"e1_best_{b}.jpg")
+        GLOWNY[b] = (t_start + tb, list(nn))
+        log.info("hires %s: wybrano klatke @%.1f s klipu (%+.1f s wzgledem poprzedniej), %d kandydatow, ucieta=%s, zaslonieta=%.2f", b, tb, tb - off, len(cand), uc, zs)
+        return tb - off
+    finally:
+        shutil.rmtree(tmpd, ignore_errors=True)
+
+
 async def rl_i_dopieszcz(b, rodzaj, klasy):
     ok = await reolink.reolink_wideo(b, rodzaj, SNAP / f"e1_v_{b}.mp4", MEDIA, przygotuj_wideo_sync, force=True)  # nagranie z kamery zawsze, bo z niego bierzemy pelna jakosc
     if ok and b in PEND:
@@ -854,6 +924,16 @@ async def rl_i_dopieszcz(b, rodzaj, klasy):
             await asyncio.get_running_loop().run_in_executor(None, dopieszcz_sync, b, klasy)
         except Exception:
             log.exception("dopieszczanie %s", b)
+    if ok and klasy == KLASY["pojazd"]:
+        try:
+            async with GLOCK:
+                sh = await asyncio.get_running_loop().run_in_executor(None, hires_najlepsza_sync, b)
+            if sh is not None and abs(sh) > 1.0:
+                ts_old = next((e.get("ts") for e in pz_wczytaj() if e.get("b") == b), None)
+                if ts_old:
+                    asyncio.create_task(przejazd_wpis(b, czekaj=False, ts=ts_old))
+        except Exception:
+            log.exception("hires %s", b)
     for kk in [x for x in list(PEND) if x.startswith(b + "_x")]:
         if ok:
             try:

@@ -74,7 +74,14 @@ def domyslna(granica=""):
         }
     else:
         ust[POZA] = {"osoba": dict(DOM, c=120), "pojazd": dict(DOM, c=45), "zwierze": dict(DOM, c=120)}
-    return {"strefy": strefy, "ust": ust}
+    cel = None
+    try:
+        cc = (c or {}).get("cel")
+        if cc and len(cc) >= 2:
+            cel = [max(0.0, min(1000.0, float(cc[0]))), max(0.0, min(1000.0, float(cc[1])))]
+    except (TypeError, ValueError):
+        cel = None
+    return {"strefy": strefy, "ust": ust, "cel": cel}
 
 
 def _ust_ok(u):
@@ -236,4 +243,4 @@ def api(dane):
         c = zapisz(dane.get("dane") or {})
     else:
         c = wczytaj(str(dane.get("granica", "")))
-    return {"ok": True, "strefy": c["strefy"], "ust": c["ust"], "poza": {"nazwa": POZA_NAZWA, "kolor": POZA_KOLOR}}
+    return {"ok": True, "strefy": c["strefy"], "ust": c["ust"], "poza": {"nazwa": POZA_NAZWA, "kolor": POZA_KOLOR}, "cel": c.get("cel")}

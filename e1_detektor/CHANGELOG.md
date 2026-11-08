@@ -366,3 +366,6 @@
 
 ## 0.18.30
 - Wybor klatki auta: ruch liczony tylko w strefie Droga
+
+## 0.18.31
+- Punkt celu snapa (przesuwany w edytorze stref), wybor najlepszej klatki na hi-res z klipu kamery (cale auto, duze, blisko celu, niezaslonione); panel v55

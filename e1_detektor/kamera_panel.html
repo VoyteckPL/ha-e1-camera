@@ -126,12 +126,12 @@ body[data-tab=zd] #nav [data-tab=zd],body[data-tab=live] #nav [data-tab=live],bo
 <div class="set"><h3>Oznaczanie aut</h3><p class="opis" style="margin:0">Ręczne oznaczanie aut na podjeździe (Kia, Seat, Obce…) w zdarzeniach z samochodem. Domyślnie wyłączone, bo auta na drodze rozpoznaje Gemini w zakładce Przejazdy. Ustawienie dotyczy tego urządzenia.</p><button class="btn big" id="ozb"></button></div>
 <div class="set"><h3>Strojenie</h3><p class="opis" style="margin:0" id="tus">Zbieranie danych do uczenia czułości.</p><button class="btn big" id="tub">Pokaż dane</button></div>
 <div class="set"><h3>Historia</h3><p class="opis" style="margin:0">Usuwa wszystkie zdarzenia z panelu (pliki zostaną posprzątane automatycznie).</p><button class="btn big" id="clr">Wyczyść historię</button></div>
-<p class="opis" style="text-align:center">Panel kamery v54</p>
+<p class="opis" style="text-align:center">Panel kamery v55</p>
 </section>
 <nav id="nav"><button data-tab="zd"><i>🗂</i><span>Zdarzenia</span></button><button data-tab="live"><i>🎥</i><span>Na żywo</span></button><button data-tab="park"><i>🅿️</i><span>Parking</span></button><button data-tab="prz"><i>🚗</i><span>Przejazdy</span></button><button data-tab="ust"><i>⚙️</i><span>Ustawienia</span></button></nav>
 
 <div id="st" class="full"><h1 style="padding-top:8px"><span>Strefy i powiadomienia <span id="sv"></span> <small style="color:var(--mu);font-weight:400">v42</small></span><button class="btn" id="stx">Zamknij</button></h1>
-<p class="opis">Narysuj strefy na zdjęciu (punkty przyciągają się do innych stref i krawędzi), nazwij je i ustaw osobne powiadomienia. Wszystko poza strefami to „Poza strefami”. Zmiany zapisują się same.</p>
+<p class="opis">Narysuj strefy na zdjęciu (punkty przyciągają się do innych stref i krawędzi), nazwij je i ustaw osobne powiadomienia. Wszystko poza strefami to „Poza strefami”. Czerwony celownik to punkt, w którym ma być auto na zdjęciu przejazdu – przeciągnij go na środek drogi. Zmiany zapisują się same.</p>
 <select id="gsel" style="width:100%;margin-bottom:8px"></select>
 <div id="zch" class="seg" style="margin-bottom:8px"></div>
 <div id="grc"><button class="btn" id="gzm">＋</button><button class="btn" id="gzl">－</button><button class="btn" id="gzr">Reset</button><span>Zoom: dwa palce lub kółko myszy; przesuwaj przeciągając tło, dotknięcie dodaje punkt</span></div><div id="grw"><div id="grz"><img id="gi" draggable="false"><svg id="gs" viewBox="0 0 1000 750" preserveAspectRatio="none"></svg></div></div>
@@ -173,11 +173,11 @@ function gapTxt(a,b){const m=Math.round((new Date(a.replace(' ','T'))-new Date(b
 const img=e=>SN+(((e.pojazdy||[]).length||!e.crop)?e.plik:e.crop);
 
 /* ---------- konfiguracja stref (w add-onie) ---------- */
-let CFG={strefy:[],ust:{},poza:{nazwa:'Poza strefami',kolor:'#6b7280'}},CFGOK=false;
+let CFG={strefy:[],ust:{},cel:null,poza:{nazwa:'Poza strefami',kolor:'#6b7280'}},CFGOK=false;
 async function api(obj){const h=H();if(!h)throw 0;const r=await h.callWS({type:'call_service',domain:'rest_command',service:'e1_analiza',service_data:{b:'api',plik:JSON.stringify(obj),rodzaj:'',granica:'',wait:0},return_response:true});const c=(r.response||r.service_response||r).content||{};if(!c.ok)throw c;return c}
-async function loadCfg(){const h=H();const g=(h&&h.states['input_text.kamera_granica']||{}).state||'';try{const c=await api({cmd:'get',granica:g});CFG={strefy:c.strefy,ust:c.ust,poza:c.poza};CFGOK=true;last='';render()}catch(e){}}
+async function loadCfg(){const h=H();const g=(h&&h.states['input_text.kamera_granica']||{}).state||'';try{const c=await api({cmd:'get',granica:g});CFG={strefy:c.strefy,ust:c.ust,poza:c.poza,cel:c.cel||null};CFGOK=true;last='';render()}catch(e){}}
 let svT=null;
-function saveCfg(){clearTimeout(svT);$('sv').textContent='…';svT=setTimeout(async()=>{try{const c=await api({cmd:'set',dane:{strefy:CFG.strefy.filter(z=>z.pts.length>=3),ust:CFG.ust}});$('sv').textContent='zapisano ✓';setTimeout(()=>{$('sv').textContent=''},1500)}catch(e){$('sv').textContent='błąd zapisu'}},700)}
+function saveCfg(){clearTimeout(svT);$('sv').textContent='…';svT=setTimeout(async()=>{try{const c=await api({cmd:'set',dane:{strefy:CFG.strefy.filter(z=>z.pts.length>=3),ust:CFG.ust,cel:CFG.cel||null}});$('sv').textContent='zapisano ✓';setTimeout(()=>{$('sv').textContent=''},1500)}catch(e){$('sv').textContent='błąd zapisu'}},700)}
 const zname=id=>id==POZA?CFG.poza.nazwa:((CFG.strefy.find(z=>z.id==id)||{}).nazwa||id);
 const zcol=name=>{const z=CFG.strefy.find(z=>z.nazwa==name);return z?z.kolor:CFG.poza.kolor};
 const getU=(zid,k)=>Object.assign({},DOM,((CFG.ust[zid]||{})[k])||{});
@@ -303,7 +303,9 @@ function gdraw(){let h='';const k=1/GZ;
 CFG.strefy.forEach(z=>{if(z.pts.length<2)return;const pts=z.pts.map(p=>p[0]+','+p[1]*.75).join(' ');const on=z.id==ACT;
 h+=(z.pts.length>2?`<polygon points="${pts}" fill="${z.kolor}" fill-opacity="${on?.35:.22}" stroke="${z.kolor}" stroke-width="${(on?3:2)*k}"/>`:`<polyline points="${pts}" fill="none" stroke="${z.kolor}" stroke-width="${3*k}"/>`)});
 const z=act();if(z)h+=z.pts.map((p,i)=>`<circle cx="${p[0]}" cy="${p[1]*.75}" r="${(i==GS?5:3.5)*k}" fill="${i==GS?'#f59e0b':'#fff'}" stroke="${z.kolor}" stroke-width="${1.5*k}"/>`).join('');
+const cl=celXY();if(cl)h+=`<g><circle cx="${cl[0]}" cy="${cl[1]*.75}" r="${9*k}" fill="rgba(239,68,68,.25)" stroke="#ef4444" stroke-width="${2*k}"/><path d="M${cl[0]-14*k} ${cl[1]*.75}H${cl[0]+14*k}M${cl[0]} ${cl[1]*.75-14*k}V${cl[1]*.75+14*k}" stroke="#ef4444" stroke-width="${2*k}"/></g>`;
 $('gs').innerHTML=h}
+function celXY(){if(CFG.cel)return CFG.cel;const d=CFG.strefy.find(z=>/droga/i.test(z.nazwa)&&z.pts.length>2);if(!d)return null;const xs=d.pts.map(p=>p[0]),ys=d.pts.map(p=>p[1]);return [(Math.min(...xs)+Math.max(...xs))/2,(Math.min(...ys)+Math.max(...ys))/2]}
 function zchips(){$('zch').innerHTML=CFG.strefy.map(z=>`<button class="chip${z.id==ACT?' on':''}" data-act="${z.id}"><span class="dotc" style="background:${z.kolor}"></span>${esc(z.nazwa)}</button>`).join('')||'<span class="opis">Brak stref – dodaj pierwszą.</span>'}
 const dst=(a,b)=>Math.hypot(a[0]-b[0],(a[1]-b[1])*.75);
 function proj(p,a,b){const dx=b[0]-a[0],dy=b[1]-a[1],l=dx*dx+dy*dy||1;let t=((p[0]-a[0])*dx+(p[1]-a[1])*dy)/l;t=Math.max(0,Math.min(1,t));return [a[0]+t*dx,a[1]+t*dy]}
@@ -320,14 +322,17 @@ gw.addEventListener('pointerdown',ev=>{ev.preventDefault();try{gw.setPointerCapt
 GP.set(ev.pointerId,[ev.clientX,ev.clientY]);
 if(GP.size==2){const a=[...GP.values()];gd0=Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1]);gs0=GZ;GD=-1;gmoved=true;return}
 gmoved=false;gstart=[ev.clientX,ev.clientY];GD=-1;const z=act();
+{const cl=celXY();if(cl){const q=gpos(ev);if(dst(q,cl)<50/GZ){GD=-2;gdraw();return}}}
 if(z){const q=gpos(ev);let best=45/GZ;z.pts.forEach((p,i)=>{const d=dst(p,q);if(d<best){best=d;GD=i}});GS=GD;gdraw()}});
 gw.addEventListener('pointermove',ev=>{if(!GP.has(ev.pointerId))return;const o=GP.get(ev.pointerId);GP.set(ev.pointerId,[ev.clientX,ev.clientY]);
 if(GP.size==2){const a=[...GP.values()],d=Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1]);gzoom(gs0*d/gd0,(a[0][0]+a[1][0])/2,(a[0][1]+a[1][1])/2);return}
+if(GD==-2){CFG.cel=gpos(ev);gmoved=true;gdraw();return}
 if(GD>=0){const z=act();if(z){z.pts[GD]=snap(gpos(ev));gmoved=true;gdraw()}return}
 if(!gmoved&&Math.hypot(ev.clientX-gstart[0],ev.clientY-gstart[1])>6)gmoved=true;
 if(gmoved&&GZ>1){GX+=ev.clientX-o[0];GY+=ev.clientY-o[1];gclamp();gap()}});
 const gup=ev=>{if(!GP.has(ev.pointerId))return;GP.delete(ev.pointerId);const z=act();
-if(ev.type=='pointerup'&&GP.size==0&&z){
+if(ev.type=='pointerup'&&GP.size==0&&GD==-2){if(gmoved)saveCfg()}
+else if(ev.type=='pointerup'&&GP.size==0&&z){
  if(GD>=0){if(gmoved)saveCfg()}
  else if(!gmoved&&z.pts.length<40){const q=snap(gpos(ev));const n=z.pts.length;let bi=-1,bd=20/GZ;if(n>=3)for(let i=0;i<n;i++){const d=dst(q,proj(q,z.pts[i],z.pts[(i+1)%n]));if(d<bd){bd=d;bi=i}}
  if(bi>=0){z.pts.splice(bi+1,0,q);GS=bi+1}else{z.pts.push(q);GS=z.pts.length-1}gdraw();saveCfg()}}
