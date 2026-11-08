@@ -559,6 +559,7 @@ def najlepsza_klatka_sync(b, klasy, granica, t0=None, extra=False):
         ocena_ruchu = []
         traj = []
         pmask = None
+        _dr = None
         if pojazd:  # auto liczymy tylko po ruchu w strefie Droga (ludzie/cienie na podjezdzie nie przesuwaja wyboru klatki)
             try:
                 import cv2
@@ -607,6 +608,10 @@ def najlepsza_klatka_sync(b, klasy, granica, t0=None, extra=False):
                 mx, my = (n[0] + n[2]) / 2, (n[1] + n[3]) / 2
                 dist = math.hypot(mx - cx, (my - cy) * 0.7)
                 kand.append((box_score(bx, iw, ih) * max(0.15, 1.0 - dist * wag), od + k / FPS, n, bx[4], k))
+        if pojazd and _dr:  # glowne auto to to na drodze; stojace na podjezdzie (np. Seat) nie moze przejac zdarzenia
+            kd = [c for c in kand if strefy.w_wielokacie((c[2][0] + c[2][2]) / 2 * 1000, c[2][3] * 1000, _dr)]
+            if kd:
+                kand = kd
         log.info("bufor: %s skan %d klatek lekkiego strumienia, detekcja %d (%.1f s), kandydatow %d", b, len(files), len(wybor), time.time() - ts, len(kand))
         if not kand:
             return None

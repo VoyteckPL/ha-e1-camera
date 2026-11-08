@@ -375,3 +375,6 @@
 
 ## 0.19.1
 - Nazwa aplikacji: Kamera
+
+## 0.19.2
+- Glowne auto zdarzenia wybierane ssposrod aut na drodze (stojace na podjezdzie nie przejmuje snapa)
