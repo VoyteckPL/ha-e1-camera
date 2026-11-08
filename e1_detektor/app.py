@@ -855,21 +855,27 @@ def dopieszcz_sync(b, klasy, k=None):
     return True
 
 
-def hires_najlepsza_sync(b):
+def hires_najlepsza_sync(b, t_start=None, pelny=False):
     """Po nagraniu z kamery: wybiera z klipu najlepsza klatke przejazdu (auto cale w kadrze, duze, blisko punktu celu, nie zaslonione)
     i podmienia snap oraz wycinek na pelna jakosc. Zwraca przesuniecie w s wzgledem poprzedniego wyboru albo None."""
     g = GLOWNY.get(b)
     fs = reolink.START.get(b)
     clip = SNAP / f"e1_v_{b}.mp4"
-    if not g or fs is None or not clip.exists():
+    if not clip.exists():
         return None
-    tc, _n = g
-    t_start = time.mktime(fs.timetuple())
-    off = tc - t_start
+    if t_start is None:
+        if not g or fs is None:
+            return None
+        t_start = time.mktime(fs.timetuple())
+    if g and not pelny:
+        off = g[0] - t_start
+        od, dur = max(0.0, off - 3.0), 6.5
+    else:  # caly klip (np. naprawa zdarzenia po restarcie)
+        off, od, dur = None, 0.0, 45.0
     cfg = strefy.wczytaj("")
     droga = next((z["pts"] for z in cfg.get("strefy", []) if "droga" in z.get("nazwa", "").lower() and z.get("pts")), None)
     cx, cy = _cel_drogi(cfg)
-    od, dur, fps = max(0.0, off - 3.0), 6.5, 3
+    fps = 3
     tmpd = tempfile.mkdtemp(prefix="e1h_")
     try:
         r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{od:.2f}", "-t", f"{dur:.2f}", "-i", str(clip), "-vf", f"fps={fps},scale=1280:960", "-q:v", "3", f"{tmpd}/f_%03d.jpg"], capture_output=True, timeout=180)
@@ -917,10 +923,44 @@ def hires_najlepsza_sync(b):
         zapisz_kadr(img, rect, SNAP / f"e1_crop_{b}.jpg")
         tmp.replace(SNAP / f"e1_best_{b}.jpg")
         GLOWNY[b] = (t_start + tb, list(nn))
-        log.info("hires %s: wybrano klatke @%.1f s klipu (%+.1f s wzgledem poprzedniej), %d kandydatow, ucieta=%s, zaslonieta=%.2f", b, tb, tb - off, len(cand), uc, zs)
-        return tb - off
+        log.info("hires %s: wybrano klatke @%.1f s klipu (%s), %d kandydatow, ucieta=%s, zaslonieta=%.2f", b, tb, "caly klip" if off is None else f"{tb - off:+.1f} s wzgledem poprzedniej", len(cand), uc, zs)
+        return {"shift": (tb - off) if off is not None else None, "ts": t_start + tb, "nn": nn, "conf": conf}
     finally:
         shutil.rmtree(tmpd, ignore_errors=True)
+
+
+async def pz_usun(b):
+    async with PZ_LOCK:
+        pz_zapisz([e for e in pz_wczytaj() if e.get("b") != b])
+
+
+async def napraw_zdarzenie(b, start):
+    """Robi zdarzenie od nowa z klipu kamery (jak aplikacja, ale z poprawnym wyborem auta na drodze); stare wpisy (b i b_x*) usuwa."""
+    try:
+        d = b.split("_")[1]
+        t_start = time.mktime(time.strptime(f"{d} {start}", "%Y%m%d %H:%M:%S"))
+        async with GLOCK:
+            res = await asyncio.get_running_loop().run_in_executor(None, hires_najlepsza_sync, b, t_start, True)
+        if not res:
+            log.warning("napraw %s: brak wyniku, nic nie usuwam", b)
+            return
+        zle = [b] + [e["b"] for e in pz_wczytaj() if str(e.get("b", "")).startswith(b + "_x")]
+        for k in zle:
+            async with reolink.HA() as ha:
+                await ha.cmd({"type": "fire_event", "event_type": "kamera_usun", "event_data": {"b": k}})
+            await pz_usun(k)
+        nn = res["nn"]
+        zid = strefy.przypisz((nn[0] * 1000, nn[1] * 1000, nn[2] * 1000, nn[3] * 1000, res["conf"]), 1000, 1000, strefy.wczytaj(""), "pojazd")
+        lok = strefy.nazwa(strefy.wczytaj(""), zid)
+        await asyncio.sleep(2)
+        async with reolink.HA() as ha:
+            await ha.cmd({"type": "fire_event", "event_type": "kamera_zdarzenie", "event_data": {
+                "b": b, "conf": float(res["conf"]), "crop": f"e1_crop_{b}.jpg", "czas": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(res["ts"])),
+                "lok": lok, "plik": f"e1_best_{b}.jpg", "pow": 0, "rodzaj": "Pojazd", "video": f"e1_v_{b}.mp4"}})
+        await przejazd_wpis(b, czekaj=False, ts=res["ts"])
+        log.info("napraw %s: gotowe (%s, usunieto %s)", b, lok, zle)
+    except Exception:
+        log.exception("napraw %s", b)
 
 
 async def rl_i_dopieszcz(b, rodzaj, klasy):
@@ -934,7 +974,7 @@ async def rl_i_dopieszcz(b, rodzaj, klasy):
         try:
             async with GLOCK:
                 sh = await asyncio.get_running_loop().run_in_executor(None, hires_najlepsza_sync, b)
-            if sh is not None and abs(sh) > 1.0:
+            if sh and sh["shift"] is not None and abs(sh["shift"]) > 1.0:
                 ts_old = next((e.get("ts") for e in pz_wczytaj() if e.get("b") == b), None)
                 if ts_old:
                     asyncio.create_task(przejazd_wpis(b, czekaj=False, ts=ts_old))
@@ -1974,6 +2014,9 @@ async def analyze(request):
                 _bf = io.BytesIO()
                 _im.convert("RGB").save(_bf, "JPEG", quality=60)
                 return web.json_response({"ok": True, "b64": base64.b64encode(_bf.getvalue()).decode()})
+            if dane.get("cmd") == "napraw":
+                asyncio.create_task(napraw_zdarzenie(str(dane.get("b", "")), str(dane.get("start", ""))))
+                return web.json_response({"ok": True, "uruchomiono": True})
             if dane.get("cmd") == "bez_etykiet":
                 def _be():
                     n = 0

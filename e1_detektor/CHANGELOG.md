@@ -378,3 +378,6 @@
 
 ## 0.19.2
 - Glowne auto zdarzenia wybierane ssposrod aut na drodze (stojace na podjezdzie nie przejmuje snapa)
+
+## 0.19.3
+- cmd napraw: zdarzenie od nowa z klipu (auto na drodze), usuwa bledne wpisy
