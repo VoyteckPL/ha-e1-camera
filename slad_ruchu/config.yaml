@@ -1,0 +1,38 @@
+name: Ślad ruchu
+version: "0.1.0"
+slug: slad_ruchu
+description: Składa zdarzenie z Frigate w jeden obraz (obiekt w kilku miejscach z godzinami) do powiadomień
+url: https://github.com/VoyteckPL/ha-e1-camera
+arch:
+  - aarch64
+  - amd64
+startup: application
+boot: auto
+init: false
+homeassistant_api: true
+services:
+  - mqtt:need
+map:
+  - type: homeassistant_config
+    read_only: false
+    path: /config
+options:
+  frigate_url: http://192.168.1.31:5050
+  tylko_gdy_wybrany: true
+  encja_zalacznika: input_select.kamera_powiad_zalacznik
+  opcja_zalacznika: Ślad ruchu
+  tylko_alerty: true
+  opoznienie_s: 15
+  max_klatek: 7
+  szerokosc: 1280
+  dni_przechowywania: 7
+schema:
+  frigate_url: url
+  tylko_gdy_wybrany: bool
+  encja_zalacznika: str
+  opcja_zalacznika: str
+  tylko_alerty: bool
+  opoznienie_s: int(0,120)
+  max_klatek: int(2,12)
+  szerokosc: int(640,2560)
+  dni_przechowywania: int(1,90)

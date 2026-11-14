@@ -8,3 +8,7 @@ Aplikacja (add-on) Home Assistant: lokalny detektor osób, samochodów i zwierz�
 - wszystko lokalnie, bez chmury i bez AI.
 
 Instalacja: Ustawienia → Aplikacje → Sklep → ⋮ → Repozytoria → `https://github.com/VoyteckPL/ha-e1-camera`.
+
+## Ślad ruchu (slad_ruchu)
+
+Składa zdarzenie z Frigate w jeden obraz (obiekt w kilku miejscach z godzinami) do powiadomień. Szczegóły: slad_ruchu/DOCS.md.
